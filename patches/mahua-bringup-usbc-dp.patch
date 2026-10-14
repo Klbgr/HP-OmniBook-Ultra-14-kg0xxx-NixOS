@@ -1,0 +1,43 @@
+Local: bring-up DTB variant with USB-C DisplayPort (mdss_dp0-2) re-enabled.
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 889df82ab..68bc0b0fc 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -67,6 +67,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk-ifp-mezzanine.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-crd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup-dp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-lenovo-thinkpad-t14s-gen7-lcd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
+diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-dp.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-dp.dts
+new file mode 100644
+index 000000000..c3334079d
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-dp.dts
+@@ -0,0 +1,23 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Bring-up DTB with USB-C DisplayPort back on: pmic_glink_altmode now loads
++ * in the initrd, so the DP controllers get their HPD bridge.
++ */
++
++#include "mahua-hp-omnibook-ultra-kg0xxx-bringup.dts"
++
++/ {
++	model = "HP OmniBook Ultra Laptop 14-kg0xxx (bring-up, USB-C DP)";
++};
++
++&mdss_dp0 {
++	status = "okay";
++};
++
++&mdss_dp1 {
++	status = "okay";
++};
++
++&mdss_dp2 {
++	status = "okay";
++};

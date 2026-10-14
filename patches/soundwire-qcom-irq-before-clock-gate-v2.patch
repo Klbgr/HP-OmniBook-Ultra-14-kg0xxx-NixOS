@@ -1,0 +1,148 @@
+From patchwork Fri Oct  9 08:26:39 2026
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Oleg Keri <okerixx@gmail.com>
+X-Patchwork-Id: 14876178
+Received: from mail-wr1-f45.google.com (mail-wr1-f45.google.com
+ [209.85.221.45])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 92DFA38E8B2
+	for <linux-arm-msm@vger.kernel.org>; Fri,  9 Oct 2026 08:26:50 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+ arc=none smtp.client-ip=209.85.221.45
+ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1791534411; cv=none;
+ b=EqsLD1B95lX32jGRbA519siYeN9EFqKiNg4ixnDlVUy1DZoJrmTUWvD5vbKCpq9sF0bBE4vC1cmKoT/PkYbOn7Oq9mKKLz7/xBTpr20XGVSQCwQrDVpR8G+yUkxFF664/1l5HIgE6WsScYSdJ0lj/95XuHjZ6DzLJdS2xIc9xH4=
+ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1791534411; c=relaxed/simple;
+	bh=CN/RDqciV7FqCK94e/7Y6l661ja6FQu1hE4KqFV/hJU=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version;
+ b=Q62ldMmj0kTLoT/8vUkVtMPusm+31yiACdfu/COmpZcqWbvFL95JxGdVs25//QWPqjg7hXDD0l4hkVgxDhl9+RD8ets9fGlmVxFMZdE7phsqTAqUVBlfsKI6G5+vMlqUPFSJoctqdA2Wm2j2f8nNxOU6jUK9pdiZ+LSJZMAN8EU=
+ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com;
+ spf=pass smtp.mailfrom=gmail.com;
+ dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b=HLKfUwxz; arc=none smtp.client-ip=209.85.221.45
+Authentication-Results: smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+ spf=pass smtp.mailfrom=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b="HLKfUwxz"
+Received: by mail-wr1-f45.google.com with SMTP id
+ ffacd0b85a97d-48afcd7ba9bso2237144f8f.3
+        for <linux-arm-msm@vger.kernel.org>;
+ Fri, 09 Oct 2026 01:26:50 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20251104; t=1791534409; x=1792139209;
+ darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=wH620z4UoPNlXk5Xt/Lvob6+Dvky4s07fyD7Cx5ik8Y=;
+        b=HLKfUwxz02brRIJmD/DmuF9sggx/XJquMvCj3GcK+jgFvWJwiWTm4A/mW74S7zrEf8
+         nC7JogflcHzqiCtPLzqBism1QPIa++mwdRw4ShbqrboSZ5YG2mz13CtQHbseiMKZ4Vc7
+         kRbpwgFF+qq1tuUVvftQIjnVhqCps0+ldmEQ8wLKKGVWov7QtojHKahJt4+qNBI2Vq2K
+         TOcZfCV02l0tJBhwZZtFJFiOWye/nh80rM72Xbcc8QqlCyOc4wMMvFYz+t4D70QtXwnC
+         txfmFo2HM5ToV+t1h+FXpERDGSR39eE9XKZLUReTlW55bz7a1AK561h2CY62UzXUq3cK
+         kYKw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1791534409; x=1792139209;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=wH620z4UoPNlXk5Xt/Lvob6+Dvky4s07fyD7Cx5ik8Y=;
+        b=FczS35Wnkezw+G9VujzUghaRUxObw2LZmmpbmj7uF1mGXWp8kdK0+ZdMeuZuWOQ+kX
+         jwRjDS9X9ZXhwVYsAuxRBBWIFD/vIwXU04MAFDl1xuVu034okfdjrgXy0+1EBJ6O8qmP
+         OsOuxdYXtbBE1S6w9Py+o0IjagoTldIk/2BkbAS6fAeNefPDve5uJRweS1T4VsexbyJl
+         PbypK5ivJ48ktIMMrOZVn7hiEk9JlvAwrjmhVvHIn3Ud1ZMuJ3r4XjFgv7WqRPLk5Yg8
+         xJaGFh92V2lnz4QoBQ7RWP7vo/tOGndIPjN8YsJ/mT2l2sB+B74EkdfpD8Ldl2izebM8
+         K8Cw==
+X-Forwarded-Encrypted: i=1;
+ AKwUvByfwbi39yQr+QpXL5obIcNxNjGsp8oAJCpg86rDRzBDtmphlg+koXkIMUqKFQu/JWWhjqLwkC+cYnen7kRu@vger.kernel.org
+X-Gm-Message-State: AFq9FYK2abSHX9rg43Sdjnr5dD+rYpnhQR+uGcg8W7BS5cyx8eM0E6tl
+	fhd21FbQLrpFguh3bchBKj5aCVt5bTYqSsw1dFNu2oRfpucWWM49kH/M
+X-Gm-Gg: AYBFou2voDaUPzGOtKB9icLc2z5Y6tlUlywNLvIy9ufx2/f2wMaQ5FU7BtEy6RoTHUC
+	cUl+3VhOzIQA7Wpc7eNdcg6e9Gm6yFeqXfatX7nKjAnqkr99ADiopCKu08CwOExRCx11ByLTZSq
+	T+n8w8AxpkWPq21Z9Gq3/FRVyjrADjIlEi52S4NNFL04ZxR0QhRtifR93CqPWpvSY0BIkzMebK+
+	Hbtp/qhIsrLoN4ZPvBetywbVgOCnPkKqYSQwFptWk0V5g2lsA+8XrdGXMHr/VjiYvPoemZiQ8AU
+	3LO98TkQfyzHiHJJ28Eo1RaWsMOX1pTuVN3cy+c3VyBFHxu34lrQNNYDS1WeTQR7mN1ODfZcHNw
+	KuYrvM0jYwpaNJ3tp6CH6sctlhdLJ6r8I79aHWFmTUSbb0ubxHUXcBbxsGawgDjEAiCV9FmpIOe
+	3ZralCyT9rBgGMejCTkam7Y4i0Mdk5loe95m61qNAiLYKy6nywKaR0M/3EYWXP9zlmrTt3Xo/lQ
+	GtuEcUwbvS7nw==
+X-Received: by 2002:a05:6000:4a0b:b0:48b:11e1:8bc8 with SMTP id
+ ffacd0b85a97d-48dbace678emr1797471f8f.39.1791534408610;
+        Fri, 09 Oct 2026 01:26:48 -0700 (PDT)
+Received: from localhost.localdomain ([194.154.195.114])
+        by smtp.googlemail.com with ESMTPSA id
+ ffacd0b85a97d-48db9abce2fsm2698522f8f.33.2026.10.09.01.26.47
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 09 Oct 2026 01:26:48 -0700 (PDT)
+From: Oleg Keri <okerixx@gmail.com>
+To: Srinivas Kandagatla <srini@kernel.org>,
+	Vinod Koul <vkoul@kernel.org>
+Cc: Bard Liao <yung-chuan.liao@linux.intel.com>,
+	Pierre-Louis Bossart <pierre-louis.bossart@linux.dev>,
+	linux-arm-msm@vger.kernel.org,
+	linux-sound@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Oleg Keri <okerixx@gmail.com>
+Subject: [PATCH v2] soundwire: qcom: disable the interrupt before gating the
+ clock
+Date: Fri,  9 Oct 2026 10:26:39 +0200
+Message-ID: <20261009082639.22662-1-okerixx@gmail.com>
+X-Mailer: git-send-email 2.55.0
+In-Reply-To: <20261007193332.5270-1-okerixx@gmail.com>
+References: <20261007193332.5270-1-okerixx@gmail.com>
+Precedence: bulk
+X-Mailing-List: linux-arm-msm@vger.kernel.org
+List-Id: <linux-arm-msm.vger.kernel.org>
+List-Subscribe: <mailto:linux-arm-msm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-arm-msm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+
+swrm_runtime_suspend() gates hclk straight after the ClockStopNow
+broadcast, while the interrupt thread that completed it is still
+clearing the status and CLK_STOP_FINISHED is about to fire. Both touch
+registers with the clock going away; on x1e80100 and glymur hclk is the
+SoundWire clock itself. The next clock-stop exit then fails at random
+(bus clash, parity errors, AUTO_ENUM_FAILED) and one side of the
+speakers stays detached until reboot.
+
+Disable the interrupt before gating the clock and enable it again once
+the clock is back.
+
+Fixes: 74e79da9fd46 ("soundwire: qcom: add runtime pm support")
+Signed-off-by: Oleg Keri <okerixx@gmail.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+---
+v2: disable_irq() instead of synchronize_irq(), which left a window for
+CLK_STOP_FINISHED; about one boot in four still hit it.
+
+ drivers/soundwire/qcom.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+index 6e0c5fb10efa..147e55b7a600 100644
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -1801,6 +1801,7 @@ static int __maybe_unused swrm_runtime_resume(struct device *dev)
+ 	}
+ 
+ 	clk_prepare_enable(ctrl->hclk);
++	enable_irq(ctrl->irq);
+ 
+ 	if (ctrl->clock_stop_not_supported) {
+ 		reinit_completion(&ctrl->enumeration);
+@@ -1887,6 +1888,7 @@ static int __maybe_unused swrm_runtime_suspend(struct device *dev)
+ 		}
+ 	}
+ 
++	disable_irq(ctrl->irq);
+ 	clk_disable_unprepare(ctrl->hclk);
+ 
+ 	usleep_range(300, 305);

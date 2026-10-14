@@ -1,0 +1,378 @@
+From patchwork Wed Sep 16 13:38:13 2026
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Oleg Keri <okerixx@gmail.com>
+X-Patchwork-Id: 14821896
+Received: from mail-wr2-f12.google.com (mail-wr2-f12.google.com
+ [74.125.225.76])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 44BFD4FDE65
+	for <linux-arm-msm@vger.kernel.org>; Wed, 16 Sep 2026 13:38:30 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+ arc=none smtp.client-ip=74.125.225.76
+ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789565932; cv=none;
+ b=WX5aacvPbbzwdNRGpFBchLSbdOVH0Z+4dAGZTG/yqGBly+wIzv8uCEjY0jkejFmBAFRGM1PXwvWqYIER8cpcwVt6Wnc7Dpzw/CwhJtXASOphVKPMU5R76bRpCsQeiVNFMTtiZ+yiNjD3zXP1Rpr7mEwAdw2iAAuiP+uDhElGUbw=
+ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789565932; c=relaxed/simple;
+	bh=8i8Qr9F+LzOgZ9ctuIJBF35YtOXaQS3m8/GHuRgFMB0=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version;
+ b=u++fL8JZbXozpOq3VaK728kXxUws6FhJd6rpCfZCGoC39H11NcimowG5mWKEP9d28cr1lKC3DrLrVaVZ4IibnMJdDfTd/s6LiYJLacU8HVrbLl7/S36wHGRz9Unh1hmtXka8lexGA9J/0YuV+C5TqH80tK2n2PsmY7LQHkt99kQ=
+ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com;
+ spf=pass smtp.mailfrom=gmail.com;
+ dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b=QrNClc2o; arc=none smtp.client-ip=74.125.225.76
+Authentication-Results: smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+ spf=pass smtp.mailfrom=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b="QrNClc2o"
+Received: by mail-wr2-f12.google.com with SMTP id
+ ffacd0b85a97d-4858bc96fabso657016f8f.3
+        for <linux-arm-msm@vger.kernel.org>;
+ Wed, 16 Sep 2026 06:38:29 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20251104; t=1789565905; x=1790170705;
+ darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=6Or2QBqTu0XO5TqiywS1dagQ1+7oN0y+saD1nDD1L5c=;
+        b=QrNClc2oMxNoNFB24nQtF44qRBwh1ByfdKqJY/RH5xAENQu56z2Qdic7Xj5THa9bQz
+         FfLBE0tpb7p9+RFBZbkHgw2euWzVDJ2wmUzTF1+WjsmN1LhR06BgZyPW5HyPLQzGsuSJ
+         0EerFlbksvqgm2PTRGyZqDW36ix89PnHZPt6yzJGyN6fGS4VumEwaN+98lhcQ+cek7eQ
+         aVsOKRM7p++2uabPKMsURrECQxuH1nyhUWdS2JBmbMPXw+9FmGVK2MQ/NfyXFZzS5Zf1
+         F1Ma1vRjJR7o/cD5TgI4QOHSZTwXc6pUAwwsvD47SVx5JmfhjaiHphBCjN9tU19+yDg0
+         gaRQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1789565905; x=1790170705;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=6Or2QBqTu0XO5TqiywS1dagQ1+7oN0y+saD1nDD1L5c=;
+        b=ccHZDiZwEcwJf825spVRdxbgyqC6zeuqTTq7XtpQ+eiwg2XkGVI2gon/hvYqFFRCUr
+         lDWniaFv0CMYSeygUkLA6tUDCOlqwuJa9AtwJnOqSx4mt+Kz633so3W0xvjJIy0gz+Xc
+         NvyCsRS5/dPGT9ibxeWLV2sdfhqhty5OsRCCFM8fw4ZS6fz4Q0zB0m7SALACbnU7jUOI
+         Pdb61eSstF6UEsjhING1+FZNPDgVarNQnkYJR4yGijGVZLhPhjTJADKtlWs80q9vv6gr
+         /lht9vf6ON9AsOCCBGfP9Y0VSkZaQopIzLQa5dFpddg7S0kZws+n+4H32mPgnXLFojLy
+         abdw==
+X-Gm-Message-State: AFuF++mlkD+yHRsc6209wkp38uFdXTQmuFvf4XV/jNkQ8kLauNYHPSd7
+	gZnluRfqcY6bzS+aZrI69HKnR8VxN7A7+jO+rCl/t6MWi8ZG/LJJIAOq
+X-Gm-Gg: AYBFou0BGBj/5318IbEsD0ZcL/iAa/+h2TfdG5Dc1zpLYhLXVhFO5jIh1KJZYjAxT7e
+	gpHyQTOXMemSR5n89nFP2IzZm2tcACUnyATxnOnSmuAO9pS7nJbV8tkvMda7sEmWo75GI2OXWQ8
+	aRxXM6EKCnp5vjJUbnW6znxPb9yQP/uypHvwE5E5DaZnf74rN9LleAj+20YhQ5ug9piMWyi8+lB
+	v8+rX59lWrcyZrP5YjMjJmk1weBrSE+yGksewzKS1pj5oyX9BsAoGlq9ZpnDbc7h5f4ma0JRkau
+	mPQbbnxRUHxKOtoYbVeOLQ8jt58WE+8vcj4fhVTWroUHunL8xTlZr4ULQo19S3+CP0eUlNdma1L
+	B/g5P3+7lrotNO5nJ8TmQ91v/dsYbfU78LG6Ja2TSaUOqI8x9cI0Eb0PKBlAusuBVKBwQTjDqSd
+	RKCNx3BMCv9Nsm6k0mNnO2hxsh7LZEfO4mqoKZY+xPxtNqr1zKP6zfjWjRoZF7pmprGXvqf2qpZ
+	O80CRUAcl4=
+X-Received: by 2002:a05:600c:8819:b0:49d:1fa8:b266 with SMTP id
+ 5b1f17b1804b1-49eb732b40emr29254665e9.26.1789565904385;
+        Wed, 16 Sep 2026 06:38:24 -0700 (PDT)
+Received: from localhost.localdomain ([194.154.195.114])
+        by smtp.googlemail.com with ESMTPSA id
+ 5b1f17b1804b1-49e83da9a7csm77085295e9.11.2026.09.16.06.38.23
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 16 Sep 2026 06:38:24 -0700 (PDT)
+From: Oleg Keri <okerixx@gmail.com>
+To: Vinod Koul <vkoul@kernel.org>,
+	Neil Armstrong <neil.armstrong@linaro.org>,
+	Manivannan Sadhasivam <mani@kernel.org>,
+	Johan Hovold <johan+linaro@kernel.org>,
+	Bjorn Andersson <quic_bjorande@quicinc.com>
+Cc: linux-arm-msm@vger.kernel.org,
+	linux-phy@lists.infradead.org,
+	linux-kernel@vger.kernel.org,
+	Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Subject: [PATCH v3 1/2] phy: qcom: qmp-combo: hold a runtime PM reference in
+ the typec callbacks
+Date: Wed, 16 Sep 2026 15:38:13 +0200
+Message-ID: <20260916133814.3977-2-okerixx@gmail.com>
+X-Mailer: git-send-email 2.55.0
+In-Reply-To: <20260916133814.3977-1-okerixx@gmail.com>
+References: <20260916133814.3977-1-okerixx@gmail.com>
+Precedence: bulk
+X-Mailing-List: linux-arm-msm@vger.kernel.org
+List-Id: <linux-arm-msm.vger.kernel.org>
+List-Subscribe: <mailto:linux-arm-msm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-arm-msm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+
+qmp_combo_typec_switch_set() and qmp_combo_typec_mux_set() tear the common
+block down and bring it straight back up, calling qmp_combo_com_exit() and
+qmp_combo_com_init() with force=true.  Both release and re-acquire the PHY
+clocks.
+
+Unlike the PHY operations, which the PHY core always invokes with a
+runtime PM reference held - phy_pm_runtime_get_sync() in phy_init(),
+phy_exit() and phy_power_on() - these two are typec_switch and typec_mux
+callbacks and hold no such reference.  Releasing the clocks is then enough
+to drop the device's last reference, so clk_core_unprepare() runs
+pm_runtime_idle() and re-enters the driver through
+qmp_combo_runtime_suspend(), which disables the very clocks that are being
+torn down:
+
+  gcc_usb3_prim_phy_pipe_clk already disabled
+  WARNING: drivers/clk/clk.c:1259 at clk_core_disable+0x298/0x300
+  Workqueue: events_freezable pmic_glink_altmode_worker
+   clk_disable
+   qmp_combo_runtime_suspend
+   pm_generic_runtime_suspend
+   genpd_runtime_suspend
+   rpm_suspend
+   rpm_idle
+   __pm_runtime_idle
+   clk_core_unprepare
+   clk_core_unprepare
+   clk_core_unprepare
+
+qmp_combo_runtime_suspend() only checks init_count, which is still
+non-zero at that point, so it proceeds and the clock enable and prepare
+counts underflow.
+
+Runtime PM is forbidden at probe, so this only becomes reachable once
+userspace opts in through power/control - which is exactly what the
+comment above pm_runtime_forbid() invites it to do.
+
+Hold a runtime PM reference across the teardown and bringup so releasing
+the clocks cannot re-enter the driver's own suspend callback.
+
+Fixes: 2851117f8f42 ("phy: qcom-qmp-combo: Introduce orientation switching")
+Signed-off-by: Oleg Keri <okerixx@gmail.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index fa1a91e67549..f6d3320a59d9 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -16,6 +16,7 @@
+ #include <linux/of_graph.h>
+ #include <linux/phy/phy.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset.h>
+ #include <linux/slab.h>
+@@ -5179,6 +5180,8 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ 	qmp->orientation = orientation;
+ 
+ 	if (qmp->init_count) {
++		guard(pm_runtime_active)(qmp->dev);
++
+ 		if (qmp->usb_init_count || qmp->usb4_init_count)
+ 			qmp_combo_usb_power_off(qmp->usb_phy);
+ 		qmp_combo_com_exit(qmp, true);
+@@ -5265,6 +5268,8 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 	if (!qmp->init_count)
+ 		return 0;
+ 
++	guard(pm_runtime_active)(qmp->dev);
++
+ 	return qmp_combo_reconfigure_phy(qmp, new_mode);
+ }
+ 
+From patchwork Wed Sep 16 13:38:14 2026
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Oleg Keri <okerixx@gmail.com>
+X-Patchwork-Id: 14821895
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com
+ [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id C76FB4FECF8
+	for <linux-arm-msm@vger.kernel.org>; Wed, 16 Sep 2026 13:38:31 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+ arc=none smtp.client-ip=74.125.225.141
+ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789565923; cv=none;
+ b=LABwewiZzLBCxMUjqVKzBBNlWvKMNpyIS/A4u0aU850aUqNrN7sj/Fj1OEeD2A2YXcANCrizMWUJJx5hwyK6isBCGGxzNyg5Sr4i758P4xrj7FvACeuJwcjh/OJ7KKdmZXQ+jzwJerC85drR1IqQHast+qdV1eiAdpxwl82Ha64=
+ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789565923; c=relaxed/simple;
+	bh=86UCdyC3JJqGMy9n7TXi2uBPfsFRRtLZVG2Nqr9rMlo=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version;
+ b=huw8oBHrZUcLSeNnd+QALYBRbkrGXPyOn36pOnA5CH2mUGt0KTmFLsjf2Ir92X49KQVRQKw/A7+yC+5X1MzA6rG22WwpWDrIZWlwUmY1Lk3ol7q/NpTvq765HHf+GjtypRa6wppoDkywSzl1R9YdHck50u1VIEul2McUbtZf3Sc=
+ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com;
+ spf=pass smtp.mailfrom=gmail.com;
+ dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b=UwQ1WNw4; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org;
+ dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+ spf=pass smtp.mailfrom=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com
+ header.b="UwQ1WNw4"
+Received: by mail-wm2-f13.google.com with SMTP id
+ 5b1f17b1804b1-49e79a408deso4810095e9.2
+        for <linux-arm-msm@vger.kernel.org>;
+ Wed, 16 Sep 2026 06:38:30 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20251104; t=1789565905; x=1790170705;
+ darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=xz3HK6DDtKRl1abjqqVH54CfvADyJSGzyjE+gIk1aBg=;
+        b=UwQ1WNw4sDNybG8rfYDBGYPd1Lm47Q0gYKYXb7JF0psXjX+MqHUIPB/iqVInc+TmWg
+         WgHL5iFnohxvIPHWoPK9JAefGeDXirf8FAs4Gmd3m1C4pGxPp+W6ctEZJeeJJPuuv7G5
+         1WVHi2y8KTPEE7hdVnVWXV9znbaR03M5ayHKnvFFTYP2WJGTTPBWhtvQqKu4eYUbM1IF
+         HltElHUNOf8Ws4UBPVsni9JiYqLjVFsxqGaq/kP0RDni4gkidstglFFkQEtTmSIqzlIP
+         axHGPIYbq67ojbN2hx+Lb+ghK+UVLwoaCbUTVPylSZ6PpW863qr294wigMTAMnN12Dmn
+         9IGw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1789565905; x=1790170705;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=xz3HK6DDtKRl1abjqqVH54CfvADyJSGzyjE+gIk1aBg=;
+        b=D0hP/m9qJq7ALnjQ262LzswVdqsXxZBY9eGOS5Yjs/FnJwWJHwgvdRL25LKNi9qwqD
+         95xFUr4WAg8HlX6k7fOcv7ClQvvTZ3/DOZP+/6Wk+J1x+QQS78w0i1ECxNrKkq7EEEFc
+         2tJtLabZKvIQ3AH8zcFlTfl6HVcgn/hcXS+WH7IfiSzdjwY4Gs+X7rUsj/WL16cV8M6J
+         L8pmu5aixCnd/YTxnIWo7VvKC+0dg6G8Rol7xgs2iKYjmNge8QEZBmHZQ52G+T1iXfkP
+         aJS1aJuCJ6kDnCKgWW/91cAHN/UjLKnrL+PPgqZazYQEtwTKQm52pN0TNhfSnkDWNovE
+         LhmQ==
+X-Gm-Message-State: AFuF++n2QplDB1e01VJQB2kIiGG6DZ6Dzoyi1eHaE1swoIS9AhW0WjFH
+	1wUBSIG2h/rhBXNfSFN3h8/AYJPYBiG2xOQtOcnSa7T+lfSDlcwYlJQ2
+X-Gm-Gg: AYBFou2VP+29cwJkHay3fukRHIm/XRSUkeyUCDZI9KuEreQg8VQa1jqg9q3PA23yrKd
+	IyX9F6aGzL3WrRG37A0jTEDeuBmvQ9KFQz0b9Y5PmhGsWMFiyLwSm80yUxzBwKMz5YhHF2CfCpc
+	AoDLHbJuS30d7sxJc+8OyZ0VtZPmKs9W6DlRWooEwxqgqrDARjkaATNC8W74zqjMZY1MenWl+k5
+	zuJj7Km4yHFORZCgq+e/fN4154Qm2mhLozUANmW8kStGwTWCcGkuzvhP4XKiXCGlMCTey75oLMb
+	PzVlAMMmw4fo83LHkBCBkUHrBXRn2te8bMekm6+5w8fyYRXmTYSNKJa9DLPJ+WL2JlLafvnm7hD
+	Cd05aeHQcFeiAypILVu8NiGycVH/1niU9P6KK+hVvlSH8qv5dPt9gz4m4MdZEcPv3Sa7+DiHyg5
+	xwg68WxduUM6aUKhsDQ6WhZg1/+g/fI9/We7wo7AE0ZkeMH9/RAW8XQOJocg/9GfEFS3mMYJ8Yg
+	nx/jQxWohCX9qw0B5lIGg==
+X-Received: by 2002:a05:600c:8b61:b0:49e:6891:27a8 with SMTP id
+ 5b1f17b1804b1-49eb732e411mr28499095e9.25.1789565905075;
+        Wed, 16 Sep 2026 06:38:25 -0700 (PDT)
+Received: from localhost.localdomain ([194.154.195.114])
+        by smtp.googlemail.com with ESMTPSA id
+ 5b1f17b1804b1-49e83da9a7csm77085295e9.11.2026.09.16.06.38.24
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 16 Sep 2026 06:38:24 -0700 (PDT)
+From: Oleg Keri <okerixx@gmail.com>
+To: Vinod Koul <vkoul@kernel.org>,
+	Neil Armstrong <neil.armstrong@linaro.org>,
+	Manivannan Sadhasivam <mani@kernel.org>,
+	Johan Hovold <johan+linaro@kernel.org>,
+	Bjorn Andersson <quic_bjorande@quicinc.com>
+Cc: linux-arm-msm@vger.kernel.org,
+	linux-phy@lists.infradead.org,
+	linux-kernel@vger.kernel.org,
+	Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Subject: [PATCH v3 2/2] phy: qcom: qmp-combo: check qmp_combo_com_init() in
+ the typec callbacks
+Date: Wed, 16 Sep 2026 15:38:14 +0200
+Message-ID: <20260916133814.3977-3-okerixx@gmail.com>
+X-Mailer: git-send-email 2.55.0
+In-Reply-To: <20260916133814.3977-1-okerixx@gmail.com>
+References: <20260916133814.3977-1-okerixx@gmail.com>
+Precedence: bulk
+X-Mailing-List: linux-arm-msm@vger.kernel.org
+List-Id: <linux-arm-msm.vger.kernel.org>
+List-Subscribe: <mailto:linux-arm-msm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-arm-msm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+
+qmp_combo_typec_switch_set() and qmp_combo_reconfigure_phy(), which the
+typec mux callback and the USB4 init path use, tear the common block down
+and bring it straight back up on an orientation or altmode change, but
+they discard the result of the bringup:
+
+	qmp_combo_com_exit(qmp, true);
+
+	qmp->qmpphy_mode = new_mode;
+
+	/* Now everything's powered down, power up the right PHYs */
+	qmp_combo_com_init(qmp, true);
+
+	if ((qmp->usb_init_count || qmp->usb4_init_count) &&
+	    new_mode != QMPPHY_MODE_DP_ONLY)
+		qmp_combo_usb_power_on(qmp->usb_phy);
+
+If qmp_combo_com_init() fails - a regulator, a reset or
+clk_bulk_prepare_enable() - it unwinds what it had brought up and returns
+an error, leaving the clocks disabled.  Both paths then carry on and
+qmp_combo_usb_power_on(), and dp_aux_init() after it, write PHY registers
+with no clock running.  qmp_combo_usb4_init() already checks the return
+value of qmp_combo_reconfigure_phy(), but never sees a failure from it.
+
+Propagate the failure instead.  Both callbacks record the requested mode
+or orientation before the bringup, and skip the hardware entirely when
+the next event asks for what is already recorded, so on failure put the
+previous mode back and forget the orientation: the next Type-C event for
+the same setting then runs the bringup again instead of being treated as
+done.
+
+The PHY is still left logically initialised with its clocks off until
+that retry, which is the state any forced bringup failure already
+produces and which these callbacks have no way to report to the PHY
+consumers; what changes is that the register writes that would fault no
+longer happen here.
+
+Fixes: 2851117f8f42 ("phy: qcom-qmp-combo: Introduce orientation switching")
+Signed-off-by: Oleg Keri <okerixx@gmail.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index f6d3320a59d9..ccdf71730dc7 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4601,6 +4601,9 @@ static int qmp_combo_usb_set_mode(struct phy *phy, enum phy_mode mode, int submo
+ 
+ static int qmp_combo_reconfigure_phy(struct qmp_combo *qmp, enum qmpphy_mode new_mode)
+ {
++	enum qmpphy_mode old_mode = qmp->qmpphy_mode;
++	int ret;
++
+ 	dev_dbg(qmp->dev, "qmp_combo_reconfigure_phy: switching from qmpphy mode %d to %d\n",
+ 		qmp->qmpphy_mode, new_mode);
+ 
+@@ -4615,7 +4618,11 @@ static int qmp_combo_reconfigure_phy(struct qmp_combo *qmp, enum qmpphy_mode new
+ 	qmp->qmpphy_mode = new_mode;
+ 
+ 	/* Now everything's powered down, power up the right PHYs */
+-	qmp_combo_com_init(qmp, true);
++	ret = qmp_combo_com_init(qmp, true);
++	if (ret) {
++		qmp->qmpphy_mode = old_mode;
++		return ret;
++	}
+ 
+ 	if ((qmp->usb_init_count || qmp->usb4_init_count) &&
+ 	    new_mode != QMPPHY_MODE_DP_ONLY)
+@@ -5166,6 +5173,7 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ {
+ 	struct qmp_combo *qmp = typec_switch_get_drvdata(sw);
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
++	int ret;
+ 
+ 	if (qmp->qmpphy_mode == QMPPHY_MODE_USB4) {
+ 		/* QMPPHY has no orientation handling in USB4 mode, don't cache the setting */
+@@ -5186,7 +5194,12 @@ static int qmp_combo_typec_switch_set(struct typec_switch_dev *sw,
+ 			qmp_combo_usb_power_off(qmp->usb_phy);
+ 		qmp_combo_com_exit(qmp, true);
+ 
+-		qmp_combo_com_init(qmp, true);
++		ret = qmp_combo_com_init(qmp, true);
++		if (ret) {
++			qmp->orientation = TYPEC_ORIENTATION_NONE;
++			return ret;
++		}
++
+ 		if (qmp->usb_init_count || qmp->usb4_init_count)
+ 			qmp_combo_usb_power_on(qmp->usb_phy);
+ 		if (qmp->dp_init_count)

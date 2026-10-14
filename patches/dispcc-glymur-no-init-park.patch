@@ -1,0 +1,26 @@
+Subject: [PATCH] clk: qcom: dispcc-glymur: Do not park mdss_mdp_clk_src
+
+clk_rcg2_shared_ops parks the RCG on XO when it is registered. For the
+MDP clock that stops the display engine that is still scanning out the
+firmware framebuffer, so efifb/simpledrm go black as soon as
+dispcc-glymur probes. With defconfig that driver is a module, so this
+happens in stage 2, right after the root filesystem is mounted.
+
+dispcc-x1e80100, -sc8280xp and -sm8450 already use
+clk_rcg2_shared_no_init_park_ops for disp_cc_mdss_mdp_clk_src for this
+reason; do the same on Glymur (and therefore Mahua).
+
+---
+diff --git a/drivers/clk/qcom/dispcc-glymur.c b/drivers/clk/qcom/dispcc-glymur.c
+index 32cc5226b..153601bb5 100644
+--- a/drivers/clk/qcom/dispcc-glymur.c
++++ b/drivers/clk/qcom/dispcc-glymur.c
+@@ -623,7 +623,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
+ 		.parent_data = disp_cc_parent_data_7,
+ 		.num_parents = ARRAY_SIZE(disp_cc_parent_data_7),
+ 		.flags = CLK_SET_RATE_PARENT,
+-		.ops = &clk_rcg2_shared_ops,
++		.ops = &clk_rcg2_shared_no_init_park_ops,
+ 	},
+ };
+ 

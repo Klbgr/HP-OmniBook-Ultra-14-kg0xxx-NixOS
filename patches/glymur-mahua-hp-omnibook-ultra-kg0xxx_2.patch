@@ -1,0 +1,146 @@
+Local fixes on top of glymur-mahua-hp-omnibook-ultra-kg0xxx.patch; regenerated against next-20261009.
+
+diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
+index ff30fb4a9..7e61cbd0d 100644
+--- a/Documentation/devicetree/bindings/arm/qcom.yaml
++++ b/Documentation/devicetree/bindings/arm/qcom.yaml
+@@ -192,6 +192,7 @@ properties:
+ 
+       - items:
+           - enum:
++              - hp,omnibook-ultra-kg0xxx
+               - qcom,mahua-crd
+           - const: qcom,mahua
+ 
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index aaa5cb77b..889df82ab 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -21,7 +21,6 @@ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-asus-zenbook-a16-ux3607oa.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-crd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-elitebook-x-g2q.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-omnibook-ultra-kg0xxx.dtb
+-dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-lenovo-yoga-slim7x.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-qcb.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= hamoa-advantech-som-db5830.dtb
+@@ -66,6 +65,8 @@ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk-el2.dtb
+ lemans-evk-ifp-mezzanine-dtbs	:= lemans-evk.dtb lemans-evk-ifp-mezzanine.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk-ifp-mezzanine.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-crd.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-lenovo-thinkpad-t14s-gen7-lcd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
+diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts
+new file mode 100644
+index 000000000..e43212cb5
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts
+@@ -0,0 +1,40 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Bring-up variant for booting from a USB stick while pmic_glink_altmode and
++ * ucsi_glink are blacklisted:
++ *  - Linux leaves the SMB2370 eUSB2 repeaters as the UEFI firmware set them
++ *    up and never re-initialises or re-tunes them.
++ *  - The USB-C DisplayPort controllers are off: their HPD bridge comes from
++ *    pmic_glink_altmode, so they would defer forever and keep msm from
++ *    binding the eDP panel.
++ */
++
++#include "mahua-hp-omnibook-ultra-kg0xxx.dts"
++
++/ {
++	model = "HP OmniBook Ultra Laptop 14-kg0xxx (bring-up)";
++};
++
++&mdss_dp0 {
++	status = "disabled";
++};
++
++&mdss_dp1 {
++	status = "disabled";
++};
++
++&mdss_dp2 {
++	status = "disabled";
++};
++
++&usb_0_hsphy {
++	/delete-property/ phys;
++};
++
++&usb_1_hsphy {
++	/delete-property/ phys;
++};
++
++&usb_2_hsphy {
++	/delete-property/ phys;
++};
+diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
+index 638bc4361..2bf0d419c 100644
+--- a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
++++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
+@@ -318,6 +318,14 @@ vreg_pmu_pcie_1p8: ldo9 {
+ 	};
+ };
+ 
++/*
++ * The CPUCP answers SCMI perf requests but never raises the completion
++ * interrupt; without polling, scmi-cpufreq hangs the SoC silently.
++ */
++&{/firmware/scmi} {
++	arm,no-completion-irq;
++};
++
+ &apps_rsc {
+ 	regulators-0 {
+ 		compatible = "qcom,pmh0101-rpmh-regulators";
+@@ -609,6 +617,18 @@ &pcie3b {
+ 	status = "okay";
+ };
+ 
++/*
++ * Mahua drops Glymur's shared gen5x8 pcie3_phy (which served pcie3a and
++ * pcie3b) and describes a standalone gen5x4 PHY for pcie3b instead. The
++ * board rails are the ones Glymur wired to the PCIe3 PHY domain.
++ */
++&pcie3b_phy {
++	vdda-phy-supply = <&vreg_l3c_e1_0p94>;
++	vdda-pll-supply = <&vreg_l2c_e1_1p2>;
++
++	status = "okay";
++};
++
+ &pcie3b_port0 {
+ 	reset-gpios = <&tlmm 155 GPIO_ACTIVE_LOW>;
+ 	wake-gpios = <&tlmm 157 GPIO_ACTIVE_LOW>;
+@@ -904,6 +924,8 @@ bluetooth {
+ 
+ /* usb_0: 2nd USB-C port (host + DP alt-mode) */
+ &usb_0 {
++	role-switch-default-mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -934,6 +956,8 @@ &usb_0_qmpphy_out {
+ 
+ /* usb_1: 3rd USB-C port (host + DP alt-mode) */
+ &usb_1 {
++	role-switch-default-mode = "host";
++
+ 	status = "okay";
+ };
+ 
+@@ -964,6 +988,8 @@ &usb_1_qmpphy_out {
+ };
+ 
+ &usb_2 {
++	role-switch-default-mode = "host";
++
+ 	status = "okay";
+ };
+ 

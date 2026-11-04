@@ -1,8 +1,11 @@
 *.txt
 *.raw
-notes.md
 resp.md
 history.md
 todo.md
 result
 patches/obsolete
+# HP/Qualcomm firmware from the Windows driver store: not redistributable,
+# extract with ./extract-firmware.sh
+firmware/qcom/
+dsp/

@@ -1,0 +1,1155 @@
+From d675f4485b7fa74b32c792841e0dc9e02fa6bdc9 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:07:57 +0530
+Subject: [PATCH 01/11] phy: qualcomm: qmp-combo: Add DP COM v8 header and fix
+ register layout
+
+Add the new DP-specific QSERDES COM v8 header file and update the
+register layout to use DP-specific status register offsets for
+C_READY_STATUS and CMN_STATUS registers.
+
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Acked-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Fixes: 5b289913959b ("phy: qualcomm: qmp-combo: Update QMP PHY with Glymur settings")
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 187f0cd11..cd14efc3c 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -52,6 +52,7 @@
+ #include "phy-qcom-qmp-dp-phy-v5.h"
+ #include "phy-qcom-qmp-dp-phy-v6.h"
+ #include "phy-qcom-qmp-dp-phy-v8.h"
++#include "phy-qcom-qmp-qserdes-dp-com-v8.h"
+ #include "phy-qcom-qmp-dp-phy-v10.h"
+ 
+ #include "phy-qcom-qmp-usb43-pcs-v8.h"
+@@ -326,8 +327,8 @@ static const unsigned int qmp_v8_n3_usb43dpphy_regs_layout[QPHY_LAYOUT_SIZE] = {
+ 	[QPHY_DP_AON_TOGGLE_ENABLE]		= QPHY_V8_PCS_AON_DP_AON_TOGGLE_ENABLE,
+ 
+ 	[QPHY_COM_RESETSM_CNTRL]		= QSERDES_V8_COM_RESETSM_CNTRL,
+-	[QPHY_COM_C_READY_STATUS]		= QSERDES_V8_COM_C_READY_STATUS,
+-	[QPHY_COM_CMN_STATUS]			= QSERDES_V8_COM_CMN_STATUS,
++	[QPHY_COM_C_READY_STATUS]		= DP_QSERDES_V8_COM_C_READY_STATUS,
++	[QPHY_COM_CMN_STATUS]			= DP_QSERDES_V8_COM_CMN_STATUS,
+ 	[QPHY_COM_BIAS_EN_CLKBUFLR_EN]	= QSERDES_V8_COM_BIAS_EN_CLKBUFLR_EN,
+ 
+ 	[QPHY_DP_PHY_STATUS]			= QSERDES_V8_DP_PHY_STATUS,
+-- 
+2.43.0
+
+
+From a5e6aab9fadf8e4031d4b10329d3033df2880ff1 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:07:58 +0530
+Subject: [PATCH 02/11] phy: qualcomm: qmp-combo: Update DP PHY common init
+ tables
+
+Update common DP PHY serdes and TX initialization tables with
+corrected PLL control values (MODE0 instead of MODE1), updated
+SSC step size, reset control, and various TX lane configuration
+parameters including emphasis levels and driver enable settings.
+
+Fixes: d10736db98d25 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Acked-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index cd14efc3c..4ed366d17 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -1502,10 +1502,10 @@ static const struct qmp_phy_init_tbl qmp_v6_n4_dp_serdes_tbl[] = {
+ };
+ 
+ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CP_CTRL_MODE0, 0x06),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_RCTRL_MODE1, 0x10),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_CCTRL_MODE1, 0x01),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_RCTRL_MODE0, 0x16),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_CCTRL_MODE0, 0x36),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CORECLK_DIV_MODE0, 0x0a),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START1_MODE0, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_INTEGLOOP_GAIN0_MODE0, 0x3f),
+@@ -1520,12 +1520,13 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYSCLK_BUF_ENABLE, 0x06),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_IVCO, 0x07),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYSCLK_EN_SEL, 0x3b),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_RESETSM_CNTRL, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP_EN, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE_CTRL, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE_MAP, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_SELECT, 0x30),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CORE_CLK_EN, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_CONFIG_1, 0x56),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_CONFIG_1, 0x16),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SVS_MODE_CLK_SEL, 0x15),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_MODE_CONTD1, 0x24),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DCC_CAL_1, 0x40),
+@@ -1561,26 +1562,26 @@ static const struct qmp_phy_init_tbl qmp_v6_n4_dp_tx_tbl[] = {
+ };
+ 
+ static const struct qmp_phy_init_tbl qmp_v8_n3p_dp_tx_tbl[] = {
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TRANSMITTER_EN_CTRL, 0x3f),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TRANSMITTER_EN_CTRL, 0x1a),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_VMODE_CTRL1, 0x40),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_ANA_INTERFACE_SELECT1, 0x07),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_ANA_INTERFACE_SELECT2, 0x18),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_PCS_INTERFACE_SELECT1, 0x50),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_LANE_MODE_1, 0x0d),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_CLKBUF_ENABLE, 0x07),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_RESET_TSYNC_EN_CTRL, 0x0a),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_CLKBUF_ENABLE, 0x87),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_RESET_TSYNC_EN_CTRL, 0x0f),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX_LVL_UPDATE_CTRL, 0x0f),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TRAN_DRVR_EMP_EN, 0x5f),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_EMP_POST1_LVL, 0x20),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX1_EMP_POST1_LVL, 0x20),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_EMP_POST1_LVL, 0x2b),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX1_EMP_POST1_LVL, 0x2b),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_PRE1_EMPH, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX1_PRE1_EMPH, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_DRV_LVL, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX1_DRV_LVL, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_HIGHZ_DRVR_EN, 0x30),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_HIGHZ_DRVR_EN, 0x3f),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_LANE_MODE_2, 0x50),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_LANE_MODE_3, 0x51),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX_DCC_ANA_CTRL2, 0x00),
++	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX_DCC_ANA_CTRL2, 0x0c),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_RESTRIM_CAL_CTRL, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX1_RESTRIM_CAL_CTRL, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_LALB_TX0_RESTRIM_POST_CAL_OFFSET, 0x10),
+-- 
+2.43.0
+
+
+From f1ce844f5bee46f7097b56b8524964f328b13b7b Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:07:59 +0530
+Subject: [PATCH 03/11] phy: qualcomm: qmp-combo: Update link rate specific DP
+ PHY tables
+
+Update DP PHY initialization tables for all link rates (RBR, HBR,
+HBR2, HBR3) with corrected VCO calibration codes, lock compare
+values, SSC step sizes, clock forward config, and bias enable
+settings for proper PLL programming across different data rates.
+
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Acked-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Fixes: d10736db98d2 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 43 ++++++++++++-----------
+ 1 file changed, 23 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 4ed366d17..71f5e8ccf 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -1754,11 +1754,12 @@ static const struct qmp_phy_init_tbl qmp_v6_n4_dp_serdes_tbl_hbr3[] = {
+ 
+ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_rbr[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_HSCLK_SEL_1, 0x05),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0x7a),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x02),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0x8d),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x27),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE1_MODE0, 0x83),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x37),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP2_MODE0, 0x04),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x02),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x1c),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP2_MODE0, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DEC_START_MODE0, 0x54),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START2_MODE0, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START3_MODE0, 0x06),
+@@ -1766,16 +1767,17 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_rbr[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE2_MODE0, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_HSCLK_SEL_1, 0x05),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_MODE_CONTD3, 0x07),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1, 0x30),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0xa4),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1, 0x3f),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0xa7),
+ };
+ 
+ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_HSCLK_SEL_1, 0x04),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0x21),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x04),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0xf6),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE1_MODE0, 0x18),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x07),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x02),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x08),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP2_MODE0, 0x07),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DEC_START_MODE0, 0x46),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START2_MODE0, 0x00),
+@@ -1792,7 +1794,8 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr2[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_HSCLK_SEL_1, 0x03),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0xf6),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x20),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE1_MODE0, 0x0),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE1_MODE0, 0x18),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_RCTRL_MODE0, 0x16),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_CCTRL_MODE0, 0x36),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x10),
+@@ -1802,9 +1805,9 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr2[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START3_MODE0, 0x05),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE1_MODE0, 0xae),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE2_MODE0, 0x02),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_HSCLK_SEL_1, 0x00),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0xbf),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIAS_EN_CLKBUFLR_EN, 0x1c),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_HSCLK_SEL_1, 0x03),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0xab),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIAS_EN_CLKBUFLR_EN, 0x17),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_RESETSM_CNTRL, 0x20),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_MODE_CONTD3, 0x03),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1, 0x3f),
+@@ -1812,8 +1815,8 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr2[] = {
+ 
+ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr3[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_HSCLK_SEL_1, 0x02),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0x63),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x0c),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE1_MODE0, 0x14),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_CMP_CODE2_MODE0, 0x25),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE1_MODE0, 0x5b),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SSC_STEP_SIZE2_MODE0, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CP_CTRL_MODE0, 0x06),
+@@ -1821,7 +1824,7 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr3[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_CCTRL_MODE0, 0x36),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CORECLK_DIV_MODE0, 0x0a),
+ 
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x17),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP1_MODE0, 0x18),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_LOCK_CMP2_MODE0, 0x15),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DEC_START_MODE0, 0x4f),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_DIV_FRAC_START1_MODE0, 0x00),
+@@ -1840,19 +1843,19 @@ static const struct qmp_phy_init_tbl qmp_v8_dp_serdes_tbl_hbr3[] = {
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYS_CLK_CTRL, 0x02),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYSCLK_BUF_ENABLE, 0x06),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_PLL_IVCO, 0x07),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYSCLK_EN_SEL, 0x04),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SYSCLK_EN_SEL, 0x3b),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE_CTRL, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_VCO_TUNE_MAP, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_SELECT, 0x30),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CORE_CLK_EN, 0x00),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_CONFIG_1, 0x16),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_SVS_MODE_CLK_SEL, 0x15),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1, 0x30),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIAS_EN_CLKBUFLR_EN, 0x10),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1, 0x3f),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIAS_EN_CLKBUFLR_EN, 0x17),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_MODE_CONTD3, 0x05),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_CMN_MODE_CONTD1, 0x24),
+ 	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_BIN_VCOCAL_HSCLK_SEL_1, 0x02),
+-	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0x84),
++	QMP_PHY_INIT_CFG(QSERDES_V8_USB43_COM_IP_CTRL_AND_DP_SEL, 0x87),
+ };
+ 
+ static const struct qmp_phy_init_tbl sc8280xp_usb43dp_serdes_tbl[] = {
+-- 
+2.43.0
+
+
+From 8ddb21dc80056c56cb9097f72d44e152888aaa0e Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:00 +0530
+Subject: [PATCH 04/11] phy: qualcomm: qmp-combo: Ignore Type-C orientation for
+ Glymur DP mode
+
+Glymur platforms use a fixed DP lane mapping and do not support DP PHY
+mode reversal based on Type-C orientation. Add a configuration flag to
+ignore reverse orientation during DP mode setup and enable it for Glymur,
+ensuring that QSERDES_DP_PHY_MODE is always programmed with the
+fix mode value (0x5c).
+
+Fixes: 815891eee6687 ("phy: qcom-qmp-combo: Introduce orientation variable")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 71f5e8ccf..062ee4397 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2565,6 +2565,9 @@ struct qmp_phy_cfg {
+ 	int (*calibrate_dp_phy)(struct qmp_combo *qmp);
+ 	void (*dp_aux_init)(struct qmp_combo *qmp);
+ 
++	/* Set if DP mode configuration should ignore TypeC orientation */
++	bool dp_mode_ignore_reverse;
++
+ 	/* USB4 specifics */
+ 	const struct qmp_phy_init_tbl *usb4_serdes_tbl;
+ 	int usb4_serdes_tbl_num;
+@@ -3429,6 +3432,8 @@ static const struct qmp_phy_cfg glymur_usb3dpphy_cfg = {
+ 	.configure_dp_clocks	= qmp_v8_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v8_configure_dp_phy,
+ 
++	.dp_mode_ignore_reverse	= true,
++
+ 	.regs			= qmp_v8_n3_usb43dpphy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3622,6 +3627,7 @@ static void qmp_v3_configure_dp_tx(struct qmp_combo *qmp)
+ static bool qmp_combo_configure_dp_mode(struct qmp_combo *qmp)
+ {
+ 	bool reverse = (qmp->orientation == TYPEC_ORIENTATION_REVERSE);
++	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 	const struct phy_configure_opts_dp *dp_opts = &qmp->dp_opts;
+ 	u32 val;
+ 
+@@ -3635,7 +3641,7 @@ static bool qmp_combo_configure_dp_mode(struct qmp_combo *qmp)
+ 
+ 	writel(val, qmp->dp_dp_phy + QSERDES_DP_PHY_PD_CTL);
+ 
+-	if (reverse)
++	if (reverse && !cfg->dp_mode_ignore_reverse)
+ 		writel(0x4c, qmp->dp_dp_phy + QSERDES_DP_PHY_MODE);
+ 	else
+ 		writel(0x5c, qmp->dp_dp_phy + QSERDES_DP_PHY_MODE);
+-- 
+2.43.0
+
+
+From a45d6f29640d49541254d8c0c249dc94a699423f Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:01 +0530
+Subject: [PATCH 05/11] phy: qualcomm: qmp-combo: Add hardware-specific
+ dp_aux_cfg2 and dp_phy_cfg1 fields
+
+Add dp_aux_cfg2 and dp_phy_cfg1 fields to qmp_phy_cfg to allow
+hardware-specific DP PHY register values to be specified per-platform
+rather than hardcoded in the configure functions.
+
+Define named constants QSERDES_DP_PHY_AUX_CFG2_V456/V8 and
+QSERDES_DP_PHY_CFG1_V456/V8 for better readability and maintainability.
+
+Populate the new fields in all existing DP PHY cfg structures:
+- V456-based platforms (sar2130p, sc8180x, sc8280xp, x1e80100, sm8250,
+  sm8350, sm8475, sm8550, sm8650, sm8750) use V456 constants
+- Glymur (V8) uses V8 constants
+
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 37 ++++++++++++++++++++++-
+ 1 file changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 062ee4397..2a4cc45d6 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2500,6 +2500,14 @@ static const struct qmp_combo_lane_mapping dp_data_lanes[] = {
+ 
+ struct qmp_combo;
+ 
++/* DP PHY AUX_CFG2 register values for different hardware versions */
++#define QSERDES_DP_PHY_AUX_CFG2_V456		0xa4
++#define QSERDES_DP_PHY_AUX_CFG2_V8		0x06
++
++/* DP PHY CFG_1 register values for different hardware versions */
++#define QSERDES_DP_PHY_CFG1_V456		0x0f
++#define QSERDES_DP_PHY_CFG1_V8			0x2f
++
+ struct qmp_combo_offsets {
+ 	u16 com;
+ 	u16 txa;
+@@ -2565,6 +2573,12 @@ struct qmp_phy_cfg {
+ 	int (*calibrate_dp_phy)(struct qmp_combo *qmp);
+ 	void (*dp_aux_init)(struct qmp_combo *qmp);
+ 
++	/* DP PHY AUX_CFG2 register value (hardware-specific) */
++	unsigned int dp_aux_cfg2;
++
++	/* DP PHY CFG_1 register value (hardware-specific) */
++	unsigned int dp_phy_cfg1;
++
+ 	/* Set if DP mode configuration should ignore TypeC orientation */
+ 	bool dp_mode_ignore_reverse;
+ 
+@@ -2820,6 +2834,8 @@ static const struct qmp_phy_cfg sar2130p_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.regs			= qmp_v6_usb3phy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+@@ -2956,6 +2972,8 @@ static const struct qmp_phy_cfg sc8180x_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3002,6 +3020,8 @@ static const struct qmp_phy_cfg sc8280xp_usb43dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3047,6 +3067,8 @@ static const struct qmp_phy_cfg x1e80100_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3156,6 +3178,8 @@ static const struct qmp_phy_cfg sm8250_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3204,6 +3228,8 @@ static const struct qmp_phy_cfg sm8350_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
+@@ -3251,6 +3277,8 @@ static const struct qmp_phy_cfg sm8475_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.regs			= qmp_v6_usb3phy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+@@ -3296,6 +3324,8 @@ static const struct qmp_phy_cfg sm8550_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.regs			= qmp_v6_usb3phy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+@@ -3341,6 +3371,8 @@ static const struct qmp_phy_cfg sm8650_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.regs			= qmp_v6_usb3phy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+@@ -3386,6 +3418,8 @@ static const struct qmp_phy_cfg sm8750_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V456,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V456,
+ 
+ 	.regs			= qmp_v8_usb3phy_regs_layout,
+ 	.reset_list		= msm8996_usb3phy_reset_l,
+@@ -3431,7 +3465,8 @@ static const struct qmp_phy_cfg glymur_usb3dpphy_cfg = {
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v8_configure_dp_clocks,
+ 	.configure_dp_phy	= qmp_v8_configure_dp_phy,
+-
++	.dp_aux_cfg2		= QSERDES_DP_PHY_AUX_CFG2_V8,
++	.dp_phy_cfg1		= QSERDES_DP_PHY_CFG1_V8,
+ 	.dp_mode_ignore_reverse	= true,
+ 
+ 	.regs			= qmp_v8_n3_usb43dpphy_regs_layout,
+-- 
+2.43.0
+
+
+From a4d47da43b43a6f823f23d7deb22c6a87dabcf05 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:02 +0530
+Subject: [PATCH 06/11] phy: qualcomm: qmp-combo: Add v8 PCS-level drive level
+ tables for Glymur
+
+Add PCS-level drive level tables for the Glymur (V8) DP PHY:
+- qmp_dp_v8_ln_drv_lvl_hbr3_hbr2: LN0/LN1_DRV_LVL settings for HBR3/HBR2
+- qmp_dp_v8_ln_drv_lvl_hbr_rbr: LN0/LN1_DRV_LVL settings for HBR/RBR
+- qmp_dp_v8_pre_emphasis_hbr_rbr: updated TX_EMP_POST1_LVL values for
+ HBR/RBR
+
+Add ln_drv_lvl_hbr_rbr and ln_drv_lvl_hbr3_hbr2 pointer fields to
+qmp_phy_cfg to allow per-platform PCS drive level table selection.
+
+Wire the new tables into glymur_usb3dpphy_cfg, replacing the previously
+used qmp_dp_v6_pre_emphasis_hbr_rbr with the corrected v8 table.
+
+without the correct v8 table following issue can occur:
+- Link training failures or instability at higher rates (HBR2/HBR3)
+- Incorrect LFPS signaling timing, potentially breaking USB3+DP combo
+mode entry/exit
+
+Fixes: d10736db98d25 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 30 ++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 2a4cc45d6..2ca67c70b 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2478,6 +2478,27 @@ static const u8 qmp_dp_v6_pre_emphasis_hbr_rbr[4][4] = {
+ 	{ 0x22, 0xff, 0xff, 0xff }
+ };
+ 
++static const u8 qmp_dp_v8_ln_drv_lvl_hbr3_hbr2[4][4] = {
++	{ 0x02, 0x12, 0x16, 0x1a },
++	{ 0x09, 0x19, 0x1f, 0xff },
++	{ 0x10, 0x1f, 0xff, 0xff },
++	{ 0x1f, 0xff, 0xff, 0xff }
++};
++
++static const u8 qmp_dp_v8_ln_drv_lvl_hbr_rbr[4][4] = {
++	{ 0x07, 0x0f, 0x16, 0x1f },
++	{ 0x11, 0x1e, 0x1f, 0xff },
++	{ 0x16, 0x1f, 0xff, 0xff },
++	{ 0x1f, 0xff, 0xff, 0xff }
++};
++
++static const u8 qmp_dp_v8_pre_emphasis_hbr_rbr[4][4] = {
++	{ 0x20, 0x2d, 0x34, 0x3b },
++	{ 0x20, 0x2e, 0x35, 0xff },
++	{ 0x20, 0x2e, 0xff, 0xff },
++	{ 0x22, 0xff, 0xff, 0xff }
++};
++
+ struct qmp_combo_lane_mapping {
+ 	unsigned int lanes_count;
+ 	enum typec_orientation orientation;
+@@ -2566,6 +2587,10 @@ struct qmp_phy_cfg {
+ 	const u8 (*pre_emphasis_hbr_rbr)[4][4];
+ 	const u8 (*pre_emphasis_hbr3_hbr2)[4][4];
+ 
++	/* PCS-level drive level tables (v8 / Glymur) */
++	const u8 (*ln_drv_lvl_hbr_rbr)[4][4];
++	const u8 (*ln_drv_lvl_hbr3_hbr2)[4][4];
++
+ 	/* DP PHY callbacks */
+ 	int (*configure_dp_clocks)(struct qmp_combo *qmp);
+ 	int (*configure_dp_phy)(struct qmp_combo *qmp);
+@@ -3457,10 +3482,13 @@ static const struct qmp_phy_cfg glymur_usb3dpphy_cfg = {
+ 	.serdes_tbl_hbr3_num	= ARRAY_SIZE(qmp_v8_dp_serdes_tbl_hbr3),
+ 
+ 	.swing_hbr_rbr		= &qmp_dp_v6_voltage_swing_hbr_rbr,
+-	.pre_emphasis_hbr_rbr	= &qmp_dp_v6_pre_emphasis_hbr_rbr,
++	.pre_emphasis_hbr_rbr	= &qmp_dp_v8_pre_emphasis_hbr_rbr,
+ 	.swing_hbr3_hbr2	= &qmp_dp_v5_voltage_swing_hbr3_hbr2,
+ 	.pre_emphasis_hbr3_hbr2	= &qmp_dp_v5_pre_emphasis_hbr3_hbr2,
+ 
++	.ln_drv_lvl_hbr_rbr	= &qmp_dp_v8_ln_drv_lvl_hbr_rbr,
++	.ln_drv_lvl_hbr3_hbr2	= &qmp_dp_v8_ln_drv_lvl_hbr3_hbr2,
++
+ 	.dp_aux_init		= qmp_v8_dp_aux_init,
+ 	.configure_dp_tx	= qmp_v4_configure_dp_tx,
+ 	.configure_dp_clocks	= qmp_v8_configure_dp_clocks,
+-- 
+2.43.0
+
+
+From e6e4ce273364cc46b27f46d7315db9e1c15e5098 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:03 +0530
+Subject: [PATCH 07/11] phy: qualcomm: qmp-combo: Extract common DP PHY init
+ sequence
+
+Extract the common DP PHY initialization sequence shared between
+qmp_v456_configure_dp_phy() and qmp_v8_configure_dp_phy() into a new
+qmp_combo_configure_dp_phy_common() function.
+
+The common sequence covers:
+- Validation that dp_aux_cfg2 is configured for the platform
+- Writing dp_phy_cfg1 and dp_aux_cfg2 hardware-specific register values
+- Calling configure_dp_mode() for TypeC lane orientation
+- Programming AUX_CFG1, TX lane control registers
+- Invoking configure_dp_clocks() callback
+- PHY_CFG reset/enable sequence
+- Polling COM_C_READY_STATUS and COM_CMN_STATUS for PLL lock
+
+Refactor qmp_v456_configure_dp_phy() to call the common function,
+removing the duplicated initialization code. Update
+qmp_v8_configure_dp_phy() to call qmp_combo_configure_dp_phy_common()
+directly instead of going through qmp_v456_configure_dp_phy().
+
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Reviewed-by: Manivannan Sadhasivam <manivannan.sadhasivam@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 98 ++++++++++++++---------
+ 1 file changed, 58 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 2ca67c70b..ff7f02936 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -3844,6 +3844,62 @@ static void qmp_v4_dp_aux_init(struct qmp_combo *qmp)
+ 	       qmp->dp_dp_phy + QSERDES_V4_DP_PHY_AUX_INTERRUPT_MASK);
+ }
+ 
++static int qmp_combo_configure_dp_phy_common(struct qmp_combo *qmp)
++{
++	const struct qmp_phy_cfg *cfg = qmp->cfg;
++	u32 status;
++	int ret;
++
++	if (!cfg->dp_aux_cfg2) {
++		dev_err(qmp->dev, "DP AUX CFG2 value not configured\n");
++		return -EINVAL;
++	}
++
++	writel(cfg->dp_phy_cfg1, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG_1);
++
++	qmp_combo_configure_dp_mode(qmp);
++
++	writel(0x13, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG1);
++	writel(cfg->dp_aux_cfg2, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG2);
++
++	writel(0x05, qmp->dp_dp_phy + QSERDES_V4_DP_PHY_TX0_TX1_LANE_CTL);
++	writel(0x05, qmp->dp_dp_phy + QSERDES_V4_DP_PHY_TX2_TX3_LANE_CTL);
++
++	ret = qmp->cfg->configure_dp_clocks(qmp);
++	if (ret)
++		return ret;
++
++	writel(0x01, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
++	writel(0x05, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
++	writel(0x01, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
++	writel(0x09, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
++
++	writel(0x20, qmp->dp_serdes + cfg->regs[QPHY_COM_RESETSM_CNTRL]);
++
++	ret = readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_C_READY_STATUS],
++			status,
++			((status & BIT(0)) > 0),
++			500,
++			10000);
++	if (ret)
++		return ret;
++
++	ret = readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_CMN_STATUS],
++			status,
++			((status & BIT(0)) > 0),
++			500,
++			10000);
++	if (ret)
++		return ret;
++
++	ret = readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_CMN_STATUS],
++			status,
++			((status & BIT(1)) > 0),
++			500,
++			10000);
++	return ret;
++}
++
+ static void qmp_v8_dp_aux_init(struct qmp_combo *qmp)
+ {
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+@@ -3944,48 +4000,10 @@ static int qmp_v456_configure_dp_phy(struct qmp_combo *qmp)
+ 	u32 status;
+ 	int ret;
+ 
+-	writel(0x0f, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG_1);
+-
+-	qmp_combo_configure_dp_mode(qmp);
+-
+-	writel(0x13, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG1);
+-	writel(0xa4, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG2);
+-
+-	writel(0x05, qmp->dp_dp_phy + QSERDES_V4_DP_PHY_TX0_TX1_LANE_CTL);
+-	writel(0x05, qmp->dp_dp_phy + QSERDES_V4_DP_PHY_TX2_TX3_LANE_CTL);
+-
+-	ret = qmp->cfg->configure_dp_clocks(qmp);
++	ret = qmp_combo_configure_dp_phy_common(qmp);
+ 	if (ret)
+ 		return ret;
+ 
+-	writel(0x01, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+-	writel(0x05, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+-	writel(0x01, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+-	writel(0x09, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+-
+-	writel(0x20, qmp->dp_serdes + cfg->regs[QPHY_COM_RESETSM_CNTRL]);
+-
+-	if (readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_C_READY_STATUS],
+-			status,
+-			((status & BIT(0)) > 0),
+-			500,
+-			10000))
+-		return -ETIMEDOUT;
+-
+-	if (readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_CMN_STATUS],
+-			status,
+-			((status & BIT(0)) > 0),
+-			500,
+-			10000))
+-		return -ETIMEDOUT;
+-
+-	if (readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_CMN_STATUS],
+-			status,
+-			((status & BIT(1)) > 0),
+-			500,
+-			10000))
+-		return -ETIMEDOUT;
+-
+ 	writel(0x19, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+ 
+ 	if (readl_poll_timeout(qmp->dp_dp_phy + cfg->regs[QPHY_DP_PHY_STATUS],
+@@ -4014,7 +4032,7 @@ static int qmp_v4_configure_dp_phy(struct qmp_combo *qmp)
+ 	u32 status;
+ 	int ret;
+ 
+-	ret = qmp_v456_configure_dp_phy(qmp);
++	ret = qmp_combo_configure_dp_phy_common(qmp);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-- 
+2.43.0
+
+
+From 19227dfbcbeffc35e4b5e94ae0b6656e002023b8 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:04 +0530
+Subject: [PATCH 08/11] phy: qualcomm: qmp-combo: Remove VCO_DIV programming
+ from qmp_v8_configure_dp_clocks()
+
+QPHY_DP_PHY_VCO_DIV register does not participate in the
+divider of vco_divided_clk, it can be left as it is- No impact
+
+Fixes: d10736db98d25 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index ff7f02936..51d7102ae 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -3945,32 +3945,26 @@ static void qmp_v4_configure_dp_tx(struct qmp_combo *qmp)
+ static int qmp_v8_configure_dp_clocks(struct qmp_combo *qmp)
+ {
+ 	const struct phy_configure_opts_dp *dp_opts = &qmp->dp_opts;
+-	u32 phy_vco_div;
+ 	unsigned long pixel_freq;
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 
+ 	switch (dp_opts->link_rate) {
+ 	case 1620:
+-		phy_vco_div = 0x4;
+ 		pixel_freq = 1620000000UL / 2;
+ 		break;
+ 	case 2700:
+-		phy_vco_div = 0x2;
+ 		pixel_freq = 2700000000UL / 2;
+ 		break;
+ 	case 5400:
+-		phy_vco_div = 0x4;
+ 		pixel_freq = 5400000000UL / 4;
+ 		break;
+ 	case 8100:
+-		phy_vco_div = 0x3;
+ 		pixel_freq = 8100000000UL / 6;
+ 		break;
+ 	default:
+ 		/* Other link rates aren't supported */
+ 		return -EINVAL;
+ 	}
+-	writel(phy_vco_div, qmp->dp_dp_phy + cfg->regs[QPHY_DP_PHY_VCO_DIV]);
+ 
+ 	/* disable core reset tsync */
+ 	writel(0x09, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+-- 
+2.43.0
+
+
+From 4601b391925067bc6591053ad7954f726cd2c6c1 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:05 +0530
+Subject: [PATCH 09/11] phy: qualcomm: qmp-combo: Add per-link-rate
+ auxless/LFPS and drive level for Glymur
+
+Add per-link-rate auxless setup/silence cycle and LFPS period values
+instead of using fixed constants:
+  RBR (1.62 Gbps): setup=0x03, silence=0x06, lfps_period=0x00
+  HBR (2.70 Gbps): setup=0x04, silence=0x08, lfps_period=0x11
+  HBR2 (5.40 Gbps): setup=0x09, silence=0x11, lfps_period=0x33
+  HBR3 (8.10 Gbps): setup=0x0f, silence=0x1a, lfps_period=0x55
+
+Add per-lane drive level lookup from the ln_drv_lvl tables based on
+the maximum voltage swing and pre-emphasis levels across all active
+lanes, replacing the hardcoded 0x1f value.
+
+without this change following error can occur:
+- Link training failures or instability at higher rates (HBR2/HBR3)
+- Incorrect LFPS signaling timing, potentially breaking USB3+DP
+combo mode entry/exit
+
+Fixes: d10736db98d25 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 39 +++++++++++++++++++----
+ 1 file changed, 32 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 51d7102ae..10b3efe48 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -3945,21 +3945,47 @@ static void qmp_v4_configure_dp_tx(struct qmp_combo *qmp)
+ static int qmp_v8_configure_dp_clocks(struct qmp_combo *qmp)
+ {
+ 	const struct phy_configure_opts_dp *dp_opts = &qmp->dp_opts;
+-	unsigned long pixel_freq;
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
++	unsigned long pixel_freq;
++	u32 auxless_setup, auxless_silence, lfps_period;
++	unsigned int v_level = 0, p_level = 0;
++	u8 ln_drv_lvl;
++	int i;
++
++	for (i = 0; i < dp_opts->lanes; i++) {
++		v_level = max(v_level, dp_opts->voltage[i]);
++		p_level = max(p_level, dp_opts->pre[i]);
++	}
++
++	if (dp_opts->link_rate <= 2700)
++		ln_drv_lvl = (*cfg->ln_drv_lvl_hbr_rbr)[v_level][p_level];
++	else
++		ln_drv_lvl = (*cfg->ln_drv_lvl_hbr3_hbr2)[v_level][p_level];
+ 
+ 	switch (dp_opts->link_rate) {
+ 	case 1620:
+ 		pixel_freq = 1620000000UL / 2;
++		auxless_setup = 0x03;
++		auxless_silence = 0x06;
++		lfps_period = 0x00;
+ 		break;
+ 	case 2700:
+ 		pixel_freq = 2700000000UL / 2;
++		auxless_setup = 0x04;
++		auxless_silence = 0x08;
++		lfps_period = 0x11;
+ 		break;
+ 	case 5400:
+ 		pixel_freq = 5400000000UL / 4;
++		auxless_setup = 0x09;
++		auxless_silence = 0x11;
++		lfps_period = 0x33;
+ 		break;
+ 	case 8100:
+ 		pixel_freq = 8100000000UL / 6;
++		auxless_setup = 0x0f;
++		auxless_silence = 0x1a;
++		lfps_period = 0x55;
+ 		break;
+ 	default:
+ 		/* Other link rates aren't supported */
+@@ -3969,18 +3995,17 @@ static int qmp_v8_configure_dp_clocks(struct qmp_combo *qmp)
+ 	/* disable core reset tsync */
+ 	writel(0x09, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+ 
+-	writel(0x04, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_AUXLESS_SETUP_CYC);
+-	writel(0x08, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_AUXLESS_SILENCE_CYC);
++	writel(auxless_setup, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_AUXLESS_SETUP_CYC);
++	writel(auxless_silence, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_AUXLESS_SILENCE_CYC);
+ 	writel(0x08, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LFPS_CYC);
+-	writel(0x11, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LFPS_PERIOD);
++	writel(lfps_period, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LFPS_PERIOD);
+ 
+ 	writel(0x3e, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TSYNC_OVRD);
+ 	writel(0x05, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TX2_TX3_LANE_CTL);
+ 	writel(0x05, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TX0_TX1_LANE_CTL);
+ 	writel(0x01, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_AUXLESS_CFG1);
+-	writel(0x11, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LFPS_PERIOD);
+-	writel(0x1f, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LN0_DRV_LVL);
+-	writel(0x1f, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LN1_DRV_LVL);
++	writel(ln_drv_lvl, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LN0_DRV_LVL);
++	writel(ln_drv_lvl, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_LN1_DRV_LVL);
+ 
+ 	clk_set_rate(qmp->dp_link_hw.clk, dp_opts->link_rate * 100000);
+ 	clk_set_rate(qmp->dp_pixel_hw.clk, pixel_freq);
+-- 
+2.43.0
+
+
+From a171e25368099561d9b8df6ee88d01c1f6193282 Mon Sep 17 00:00:00 2001
+From: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:06 +0530
+Subject: [PATCH 10/11] phy: qualcomm: qmp-combo: Fix Glymur v8 DP PHY init and
+ configure sequences
+
+Update qmp_v8_dp_aux_init():
+- Add CLK_FWD_CONFIG_1 initialization (0x3f) before power-down control
+- Replace PSR_PWRDN with LANE_0_1_PWRDN and LANE_2_3_PWRDN in PD_CTL
+  to correctly power down the data lanes
+- Correct BIAS_EN_CLKBUFLR_EN value from 0x1c to 0x17
+
+Update qmp_v4_configure_dp_tx():
+- Correct default TX_EMP_POST1_LVL value from 0x20 to 0x2b
+
+Update qmp_v8_configure_dp_phy():
+- Correct 2-lane and 4-lane driver enable values to 0x30 (was 0x10/0x34)
+- Add CLKBUF_ENABLE (0x87) programming for both TX lanes before driver
+  enable writes
+- Add TSYNC_OVRD sequence (0x03 -> 0x23 -> 0x22 -> 0x3e) and
+  LALB_RESET_TSYNC_EN_CTRL (0x0a) programming for proper TSYNC handling
+- Fix QPHY_DP_PHY_STATUS poll to check BIT(0) instead of BIT(1)
+- Replace post-lock TX_DRV_LVL/TX_EMP writes with two COM_CMN_STATUS
+  polls (BIT(0) and BIT(1)) to properly verify PLL lock completion
+
+without this fixes following can occur:
+- Link training failures or instability at higher rates (HBR2/HBR3)
+- Incorrect LFPS signaling timing, potentially breaking USB3+DP combo
+mode entry/exit
+
+[   34.109482] [drm:msm_dp_ctrl_link_train_1_2 [msm]] *ERROR* link training #2 on phy 1 failed. ret=-110
+[   34.111460] [drm:msm_dp_ctrl_setup_main_link [msm]] *ERROR* link training of LTTPR(s) failed. ret=-110
+[   34.118118] [drm:msm_dp_display_atomic_enable [msm]] *ERROR* Failed link training (rc=-104)
+[   34.118156] [drm:msm_dp_aux_isr [msm]] *ERROR* Unexpected DP AUX IRQ 0x01000000 when not busy
+
+Fixes: d10736db98d25 ("phy: qualcomm: qmp-combo: Add DP offsets and settings for Glymur platforms")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 54 +++++++++++++++--------
+ 1 file changed, 35 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 10b3efe48..b34b892c2 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -3904,12 +3904,15 @@ static void qmp_v8_dp_aux_init(struct qmp_combo *qmp)
+ {
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 
+-	writel(DP_PHY_PD_CTL_PWRDN | DP_PHY_PD_CTL_PSR_PWRDN | DP_PHY_PD_CTL_AUX_PWRDN |
+-	       DP_PHY_PD_CTL_PLL_PWRDN | DP_PHY_PD_CTL_DP_CLAMP_EN,
+-	       qmp->dp_dp_phy + QSERDES_DP_PHY_PD_CTL);
++	writel(0x3f, qmp->dp_serdes + QSERDES_V8_USB43_COM_CLK_FWD_CONFIG_1);
++
++	writel(DP_PHY_PD_CTL_PWRDN | DP_PHY_PD_CTL_AUX_PWRDN |
++			DP_PHY_PD_CTL_LANE_0_1_PWRDN | DP_PHY_PD_CTL_LANE_2_3_PWRDN |
++			DP_PHY_PD_CTL_PLL_PWRDN | DP_PHY_PD_CTL_DP_CLAMP_EN,
++			qmp->dp_dp_phy + QSERDES_DP_PHY_PD_CTL);
+ 
+ 	/* Turn on BIAS current for PHY/PLL */
+-	writel(0x1c, qmp->dp_serdes + cfg->regs[QPHY_COM_BIAS_EN_CLKBUFLR_EN]);
++	writel(0x17, qmp->dp_serdes + cfg->regs[QPHY_COM_BIAS_EN_CLKBUFLR_EN]);
+ 
+ 	writel(0x00, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG0);
+ 	writel(0x13, qmp->dp_dp_phy + QSERDES_DP_PHY_AUX_CFG1);
+@@ -3936,8 +3939,8 @@ static void qmp_v4_configure_dp_tx(struct qmp_combo *qmp)
+ 	writel(0x27, qmp->dp_tx + cfg->regs[QPHY_TX_TX_DRV_LVL]);
+ 	writel(0x27, qmp->dp_tx2 + cfg->regs[QPHY_TX_TX_DRV_LVL]);
+ 
+-	writel(0x20, qmp->dp_tx + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
+-	writel(0x20, qmp->dp_tx2 + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
++	writel(0x2b, qmp->dp_tx + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
++	writel(0x2b, qmp->dp_tx2 + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
+ 
+ 	qmp_combo_configure_dp_swing(qmp);
+ }
+@@ -4126,39 +4129,52 @@ static int qmp_v8_configure_dp_phy(struct qmp_combo *qmp)
+ 	} else if (dp_opts->lanes == 2) {
+ 		bias0_en = reverse ? 0x3f : 0x15;
+ 		bias1_en = reverse ? 0x15 : 0x3f;
+-		drvr0_en = 0x10;
+-		drvr1_en = 0x10;
++		drvr0_en = reverse ? 0x30 : 0x10;
++		drvr1_en = reverse ? 0x10 : 0x30;
+ 	} else {
+ 		bias0_en = 0x3f;
+ 		bias1_en = 0x3f;
+-		drvr0_en = 0x34;
+-		drvr1_en = 0x34;
++		drvr0_en = 0x30;
++		drvr1_en = 0x30;
+ 	}
+ 
++	writel(0x8f, qmp->dp_tx + QSERDES_V8_LALB_CLKBUF_ENABLE);
++	writel(0x87, qmp->dp_tx2 + QSERDES_V8_LALB_CLKBUF_ENABLE);
+ 	writel(drvr0_en, qmp->dp_tx + cfg->regs[QPHY_TX_HIGHZ_DRVR_EN]);
+ 	writel(bias0_en, qmp->dp_tx + cfg->regs[QPHY_TX_TRANSCEIVER_BIAS_EN]);
+ 	writel(drvr1_en, qmp->dp_tx2 + cfg->regs[QPHY_TX_HIGHZ_DRVR_EN]);
+ 	writel(bias1_en, qmp->dp_tx2 + cfg->regs[QPHY_TX_TRANSCEIVER_BIAS_EN]);
+ 
++	writel(0x03, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TSYNC_OVRD);
++	writel(0x23, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TSYNC_OVRD);
++	writel(0x22, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TSYNC_OVRD);
++
++	writel(0x0a, qmp->dp_tx + QSERDES_V8_LALB_RESET_TSYNC_EN_CTRL);
++	writel(0x0a, qmp->dp_tx2 + QSERDES_V8_LALB_RESET_TSYNC_EN_CTRL);
++
++	writel(0x3e, qmp->dp_dp_phy + QSERDES_V8_DP_PHY_TSYNC_OVRD);
++
+ 	writel(0x08, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+ 	udelay(100);
+ 	writel(0x09, qmp->dp_dp_phy + QSERDES_DP_PHY_CFG);
+ 	udelay(500);
+ 
+-	if (readl_poll_timeout(qmp->dp_dp_phy + cfg->regs[QPHY_DP_PHY_STATUS],
++	ret = readl_poll_timeout(qmp->dp_dp_phy + cfg->regs[QPHY_DP_PHY_STATUS],
+ 			status,
+-			((status & BIT(1)) > 0),
++			((status & BIT(0)) > 0),
+ 			500,
+-			10000))
+-		return -ETIMEDOUT;
++			10000);
++	if (ret)
++		return ret;
+ 
+-	writel(0x00, qmp->dp_tx + cfg->regs[QPHY_TX_TX_DRV_LVL]);
+-	writel(0x00, qmp->dp_tx2 + cfg->regs[QPHY_TX_TX_DRV_LVL]);
+ 
+-	writel(0x2b, qmp->dp_tx + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
+-	writel(0x2b, qmp->dp_tx2 + cfg->regs[QPHY_TX_TX_EMP_POST1_LVL]);
++	ret = readl_poll_timeout(qmp->dp_serdes + cfg->regs[QPHY_COM_CMN_STATUS],
++			status,
++			((status & BIT(0)) > 0),
++			500,
++			10000);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int qmp_combo_dp_configure(struct phy *phy, union phy_configure_opts *opts)
+-- 
+2.43.0
+
+
+From 46d79db54bbec65495cb319cbb45f2fffb418d18 Mon Sep 17 00:00:00 2001
+From: Nabige Aala <nabige.aala@oss.qualcomm.com>
+Date: Wed, 28 Oct 2026 16:08:07 +0530
+Subject: [PATCH 11/11] phy: qualcomm: qmp-combo: Fix error propagation in
+ qmp_combo_dp_power_on()
+
+The configure_dp_phy() callback can return an error (e.g. -ETIMEDOUT on
+PLL lock failure), but qmp_combo_dp_power_on() was ignoring the return
+value and always returning 0.
+
+Capture the return value, skip setting dp_powered_on on failure, and
+propagate the error to the caller.
+
+Fixes: dd1153651b038 ("phy: qcom-qmp-combo: merge driver data")
+Signed-off-by: Ritesh Kumar <ritesh.kumar@oss.qualcomm.com>
+Signed-off-by: Mahadevan P <mahadevan.p@oss.qualcomm.com>
+Tested-by: Jeff Roach <jeff.roach0@gmail.com> # HP OmniBook X 16 (Mahua)
+Tested-by: Luke Macken <luke@phorex.org>
+Signed-off-by: Nabige Aala <nabige.aala@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index b34b892c2..4def2bd99 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4416,8 +4416,9 @@ static int qmp_combo_dp_power_on(struct phy *phy)
+ 	const struct qmp_phy_cfg *cfg = qmp->cfg;
+ 	void __iomem *tx = qmp->dp_tx;
+ 	void __iomem *tx2 = qmp->dp_tx2;
++	int ret;
+ 
+-	mutex_lock(&qmp->phy_mutex);
++	guard(mutex)(&qmp->phy_mutex);
+ 
+ 	qmp_combo_dp_serdes_init(qmp);
+ 
+@@ -4428,12 +4429,14 @@ static int qmp_combo_dp_power_on(struct phy *phy)
+ 	cfg->configure_dp_tx(qmp);
+ 
+ 	/* Configure link rate, swing, etc. */
+-	cfg->configure_dp_phy(qmp);
++	ret = cfg->configure_dp_phy(qmp);
++	if (ret) {
++		dev_err(qmp->dev, "DP PHY configuration failed: %d\n", ret);
++		return ret;
++	}
+ 
+ 	qmp->dp_powered_on = true;
+ 
+-	mutex_unlock(&qmp->phy_mutex);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+

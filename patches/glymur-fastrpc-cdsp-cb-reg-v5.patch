@@ -1,0 +1,109 @@
+From 3591130d375f6b4844002d647471b2d9d3179e5b Mon Sep 17 00:00:00 2001
+From: Ekansh Gupta <ekansh.gupta@oss.qualcomm.com>
+Date: Fri, 16 Oct 2026 12:06:46 +0530
+Subject: [PATCH 1/2] dt-bindings: misc: qcom,fastrpc: Allow hex digits in
+ compute-cb node names
+
+The patternProperties key for compute-cb subnodes used [0-9]* which
+only matches decimal digits. However, per DTS convention, node unit
+addresses must be the lowercase hexadecimal representation of the reg
+value. For compute-cb nodes with reg values >= 10 (e.g. 12, 13, 14),
+the correct node names are compute-cb@c, compute-cb@d, compute-cb@e
+respectively, which are not matched by the current pattern.
+
+Extend the pattern to [0-9a-f]+ to allow lowercase hex digits, making
+it consistent with DTS unit address conventions. Also change * to +
+to require at least one digit in the unit address.
+
+Reviewed-by: Mukesh Ojha <mukesh.ojha@oss.qualcomm.com>
+Acked-by: Rob Herring (Arm) <robh@kernel.org>
+Signed-off-by: Ekansh Gupta <ekansh.gupta@oss.qualcomm.com>
+---
+ Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+index 49d2a5e8b..d9444f452 100644
+--- a/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
++++ b/Documentation/devicetree/bindings/misc/qcom,fastrpc.yaml
+@@ -79,7 +79,7 @@ properties:
+     const: 0
+ 
+ patternProperties:
+-  "(compute-)?cb@[0-9]*$":
++  "(compute-)?cb@[0-9a-f]+$":
+     type: object
+ 
+     description: >
+-- 
+2.43.0
+
+
+From bbd065cc3fb55657213a60b83749de033c6c7787 Mon Sep 17 00:00:00 2001
+From: Ekansh Gupta <ekansh.gupta@oss.qualcomm.com>
+Date: Fri, 16 Oct 2026 12:06:47 +0530
+Subject: [PATCH 2/2] arm64: dts: qcom: glymur: Fix fastrpc compute-cb reg
+ values for cdsp
+
+The reg value of a compute-cb node must match the SID (the lower
+nibble of its IOMMU stream ID) it is associated with. In the cdsp
+fastrpc node, compute-cb@10, compute-cb@11 and compute-cb@12 were
+mistakenly given reg values of 10, 11 and 12 instead of 0xc, 0xd and
+0xe, which don't match their SIDs and leads to SMMU translation errors.
+Fix the reg values, and rename the nodes accordingly.
+
+Fixes: cd1d174c75f7 ("arm64: dts: qcom: glymur: Add ADSP and CDSP for Glymur SoC")
+Co-developed-by: Mahima Bhattaram <mbhattar@qti.qualcomm.com>
+Signed-off-by: Mahima Bhattaram <mbhattar@qti.qualcomm.com>
+Reviewed-by: Pankaj Patil <pankaj.patil@oss.qualcomm.com>
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Reviewed-by: Mukesh Ojha <mukesh.ojha@oss.qualcomm.com>
+Signed-off-by: Ekansh Gupta <ekansh.gupta@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/glymur.dtsi | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur.dtsi b/arch/arm64/boot/dts/qcom/glymur.dtsi
+index d50b92b49..a57d1046e 100644
+--- a/arch/arm64/boot/dts/qcom/glymur.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur.dtsi
+@@ -8568,9 +8568,9 @@ compute-cb@8 {
+ 
+ 					/* note: compute-cb@9 is secure */
+ 
+-					compute-cb@10 {
++					compute-cb@c {
+ 						compatible = "qcom,fastrpc-compute-cb";
+-						reg = <10>;
++						reg = <0xc>;
+ 
+ 						iommus = <&apps_smmu 0x240c 0x440>,
+ 							 <&apps_smmu 0x196c 0x0>,
+@@ -8578,9 +8578,9 @@ compute-cb@10 {
+ 						dma-coherent;
+ 					};
+ 
+-					compute-cb@11 {
++					compute-cb@d {
+ 						compatible = "qcom,fastrpc-compute-cb";
+-						reg = <11>;
++						reg = <0xd>;
+ 
+ 						iommus = <&apps_smmu 0x240d 0x440>,
+ 							 <&apps_smmu 0x196d 0x0>,
+@@ -8588,9 +8588,9 @@ compute-cb@11 {
+ 						dma-coherent;
+ 					};
+ 
+-					compute-cb@12 {
++					compute-cb@e {
+ 						compatible = "qcom,fastrpc-compute-cb";
+-						reg = <12>;
++						reg = <0xe>;
+ 
+ 						iommus = <&apps_smmu 0x240e 0x440>,
+ 							 <&apps_smmu 0x196e 0x0>,
+-- 
+2.43.0
+

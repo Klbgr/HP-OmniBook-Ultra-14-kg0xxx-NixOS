@@ -1,61 +1,10 @@
-# Collects GPU / sound / Wi-Fi diagnostics. Run as root:
-#   omnibook-diag               report only
-#   omnibook-diag --wifi NAME   load ath12k now with /etc/omnibook/wlan-bdf/NAME
-#                               as board.bin (once per boot)
-#   omnibook-diag --wifi default  load ath12k with the built-in board files
+# Collects system / GPU / sound / Wi-Fi diagnostics. Run as root: sudo omnibook-diag
+# `--cpu-load` adds a ~4 min CPU load test (1, 2, 6, 12 busy cores).
 # The report goes to /boot (the FAT ESP, readable from Windows) when mounted.
 
 if [[ $EUID -ne 0 ]]; then
   echo "run as root (sudo omnibook-diag)" >&2
   exit 1
-fi
-
-if [[ ${1:-} == --wifi ]]; then
-  name=${2:-default}
-  if [[ $name != default && ! -f /etc/omnibook/wlan-bdf/$name ]]; then
-    echo "unknown board file; choose one of: default" >&2
-    ls /etc/omnibook/wlan-bdf >&2
-    exit 1
-  fi
-  if [[ -e /sys/module/ath12k_wifi7 ]]; then
-    echo "ath12k_wifi7 already loaded: boot with modprobe.blacklist=ath12k_wifi7" >&2
-    echo "(press e in the boot menu) to test another board file" >&2
-    exit 1
-  fi
-  if [[ $name != default ]]; then
-    src=$(cat /sys/module/firmware_class/parameters/path)
-    d=/run/omnibook-fw
-    # Real dirs only along ath12k/WCN7850/hw2.0, symlinks everywhere else.
-    link_except() {
-      mkdir -p "$2/$3"
-      for e in "$1"/*; do
-        [[ ${e##*/} == "$3" ]] || ln -s "$e" "$2/"
-      done
-    }
-    rm -rf $d && mkdir -p $d
-    link_except "$src" $d ath12k
-    link_except "$src/ath12k" $d/ath12k WCN7850
-    link_except "$src/ath12k/WCN7850" $d/ath12k/WCN7850 hw2.0
-    # board-2.bin stays: it also carries the regdb.
-    for e in "$src"/ath12k/WCN7850/hw2.0/*; do
-      case ${e##*/} in board.bin*) ;; *) ln -s "$e" $d/ath12k/WCN7850/hw2.0/ ;; esac
-    done
-    cp "/etc/omnibook/wlan-bdf/$name" $d/ath12k/WCN7850/hw2.0/board.bin
-    echo -n $d > /sys/module/firmware_class/parameters/path
-  fi
-  wout=/root/omnibook-wifi.txt
-  mountpoint -q /boot && wout=/boot/omnibook-wifi.txt
-  n=$(dmesg | wc -l)
-  echo "loading ath12k_wifi7 with board file: $name (log: $wout)"
-  # BOOT | QMI debug messages (PCI adds one line per interrupt)
-  modprobe ath12k debug_mask=0x60
-  modprobe ath12k_wifi7
-  sleep 30
-  { echo "board file: $name"; ls -lL /run/omnibook-fw/ath12k/WCN7850/hw2.0/ 2>&1
-    dmesg | tail -n +$((n + 1)) | grep -v 'Modules linked in'
-    ls /sys/class/net; } > "$wout" 2>&1
-  tail -n 15 "$wout"
-  exit 0
 fi
 
 out=/root/omnibook-diag.txt
@@ -85,11 +34,74 @@ as_user() {
   journalctl -b -1 -k --no-pager -o short-monotonic 2>&1 \
     | grep -v 'Modules linked in' | tail -n 150
 
+  section "CPU frequency and idle"
+  for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    [[ -d $p ]] || continue
+    printf '%s: cpus=%s driver=%s governor=%s cur=%s min=%s max=%s hw=%s-%s\n' \
+      "${p##*/}" "$(cat $p/related_cpus)" "$(cat $p/scaling_driver)" \
+      "$(cat $p/scaling_governor)" "$(cat $p/scaling_cur_freq)" \
+      "$(cat $p/scaling_min_freq)" "$(cat $p/scaling_max_freq)" \
+      "$(cat $p/cpuinfo_min_freq)" "$(cat $p/cpuinfo_max_freq)"
+    printf '  available: %s\n  boost: %s\n' \
+      "$(cat $p/scaling_available_frequencies 2>/dev/null)" \
+      "$(cat $p/boost $p/scaling_boost_frequencies 2>/dev/null | tr '\n' ' ')"
+  done
+  run cat /sys/devices/system/cpu/cpufreq/boost
+  if [[ ${1:-} == --cpu-load ]]; then
+    # scaling_cur_freq is the kernel's view; cpuinfo_cur_freq asks the firmware.
+    sample() {
+      printf '[%ss]\n' "$1"
+      for p in /sys/devices/system/cpu/cpufreq/policy*; do
+        printf '%s: scaling_cur=%s cpuinfo_cur=%s max=%s\n' "${p##*/}" \
+          "$(cat $p/scaling_cur_freq)" "$(cat $p/cpuinfo_cur_freq 2>/dev/null)" \
+          "$(cat $p/scaling_max_freq)"
+      done
+      for z in /sys/class/thermal/thermal_zone*; do
+        printf '%s %s\n' "$(cat $z/temp)" "$(cat $z/type)"
+      done | sort -rn | head -n 5
+      grep -H . /sys/class/thermal/cooling_device*/cur_state 2>/dev/null | grep -v ':0$'
+    }
+    # matrixprod is a heavy FP load; the default stressor mix draws less power.
+    for n in 1 2 6 12; do
+      t=25; [[ $n == 12 ]] && t=120
+      printf '\n--- stress-ng --cpu %s --cpu-method matrixprod -t %s ---\n' "$n" "$t"
+      stress-ng --cpu "$n" --cpu-method matrixprod -t "$t" --metrics-brief 2>&1 \
+        | grep -E 'cpu +[0-9]' &
+      if [[ $n == 12 ]]; then
+        for s in 10 30 60 110; do sleep $((s - ${prev:-0})); prev=$s; sample "$s"; done
+      else
+        sleep 20; sample 20
+      fi
+      wait
+    done
+  fi
+  run cat /sys/devices/system/cpu/cpuidle/current_driver /sys/devices/system/cpu/cpuidle/current_governor
+  for c in /sys/devices/system/cpu/cpu[0-9]*; do
+    [[ -d $c/cpuidle ]] || continue
+    printf '%s:' "${c##*/}"
+    for s in $c/cpuidle/state*; do
+      printf ' %s usage=%s time=%sus' "$(cat $s/name)" "$(cat $s/usage)" "$(cat $s/time)"
+    done
+    echo
+  done
+  run ls /sys/bus/scmi_protocol/devices
+  run lsmod
+  dmesg | grep -iE 'scmi|cpucp|cpufreq|cpuidle|psci' | tail -n 40
+
+  section "sleep"
+  run cat /sys/power/mem_sleep
+  grep -r . /sys/power/suspend_stats 2>/dev/null
+  grep -r . /sys/kernel/debug/qcom_stats 2>/dev/null
+  grep -l enabled /sys/devices/platform/soc@0/*/power/wakeup 2>/dev/null
+
   section "GPU"
   dmesg | grep -iE 'adreno|msm_dpu|\[drm\]|gmu|zap' | tail -n 30
   run ls -l /dev/dri /dev/dri/by-path
-  for e in /sys/class/drm/card*-eDP-*/edid; do
-    [[ -s $e ]] && run edid-decode "$e"
+  # sysfs reports the edid attribute as 0 bytes, so test its content.
+  for e in /sys/class/drm/card*-*/edid; do
+    [[ -e $e && $(head -c 1 "$e" | wc -c) -gt 0 ]] || continue
+    printf '\n$ edid-decode %s (%s bytes)\n' "$e" "$(wc -c < "$e")"
+    edid-decode < "$e" 2>&1
   done
   for c in /sys/class/drm/card*-DP-*; do
     [[ -e $c ]] && printf '%s: %s, %s\n' "${c##*/}" "$(cat $c/status)" "$(cat $c/enabled)"
@@ -121,8 +133,6 @@ as_user() {
 
   section "Wi-Fi"
   run cat /sys/module/firmware_class/parameters/path
-  run ls -lL /run/omnibook-fw/ath12k/WCN7850/hw2.0/
-  run ls -l /etc/omnibook/wlan-bdf/
   dmesg | grep -iE 'ath12k|mhi' | tail -n 30
   run ls /sys/class/net
 

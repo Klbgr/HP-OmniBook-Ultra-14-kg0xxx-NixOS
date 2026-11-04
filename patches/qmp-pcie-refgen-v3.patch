@@ -1,0 +1,337 @@
+From 41675bc6a537fee2e03f5637d3380bc32f2b7ef4 Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 13 Oct 2026 03:16:45 -0700
+Subject: [PATCH 1/3] dt-bindings: phy: sc8280xp-qmp-pcie: Add vdda-refgen
+ supply for Glymur
+
+The PCIe QMP PHYs require a stable reference voltage provided by REFGEN,
+which in turn requires two separate LDOs to operate. Without these
+supplies, the PCIe PHY cannot work properly.
+
+Add vdda-refgen0p9-supply and vdda-refgen1p2-supply properties. Mark them
+as required for the Glymur PCIe QMP PHYs for now, even though it breaks
+ABI; other platforms having the same requirement can be added later.
+
+Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+---
+ .../bindings/phy/qcom,sc8280xp-qmp-pcie-phy.yaml | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-pcie-phy.yaml b/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-pcie-phy.yaml
+index c0a3e1f16..f827abaf2 100644
+--- a/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-pcie-phy.yaml
++++ b/Documentation/devicetree/bindings/phy/qcom,sc8280xp-qmp-pcie-phy.yaml
+@@ -104,6 +104,10 @@ properties:
+ 
+   vdda-qref-supply: true
+ 
++  vdda-refgen0p9-supply: true
++
++  vdda-refgen1p2-supply: true
++
+   qcom,4ln-config-sel:
+     description: PCIe 4-lane configuration
+     $ref: /schemas/types.yaml#/definitions/phandle-array
+@@ -280,6 +284,18 @@ allOf:
+         "#clock-cells":
+           const: 0
+ 
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - qcom,glymur-qmp-gen4x2-pcie-phy
++              - qcom,glymur-qmp-gen5x4-pcie-phy
++    then:
++      required:
++        - vdda-refgen0p9-supply
++        - vdda-refgen1p2-supply
++
+ examples:
+   - |
+     #include <dt-bindings/clock/qcom,gcc-sc8280xp.h>
+-- 
+2.43.0
+
+
+From 3f2e383ef94c7a078a1cb454d440f25afc65b92f Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 13 Oct 2026 03:16:46 -0700
+Subject: [PATCH 2/3] phy: qcom: qmp-pcie: Add vdda-refgen supplies for Glymur
+
+The refgen providing reference voltage for PCIe QMP PHY on Glymur requires
+two power supplies independent from the PHY's core and qref rails. Add
+support for vdda-refgen0p9 and vdda-refgen1p2 supplies with a dedicated
+glymur_qmp_phy_vreg_l list.
+
+Update both Gen5x4 and Gen4x2 configurations to use the new supply list.
+
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-pcie.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-pcie.c b/drivers/phy/qualcomm/phy-qcom-qmp-pcie.c
+index 9cfabf474..e226b65ec 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-pcie.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-pcie.c
+@@ -4106,6 +4106,10 @@ static const char * const sm8550_qmp_phy_vreg_l[] = {
+ 	"vdda-phy", "vdda-pll", "vdda-qref",
+ };
+ 
++static const char * const glymur_qmp_phy_vreg_l[] = {
++	"vdda-phy", "vdda-pll", "vdda-refgen0p9", "vdda-refgen1p2",
++};
++
+ /* list of resets */
+ static const char * const ipq8074_pciephy_reset_l[] = {
+ 	"phy", "common",
+@@ -5555,8 +5559,8 @@ static const struct qmp_phy_cfg glymur_qmp_gen5x4_pciephy_cfg = {
+ 
+ 	.reset_list		= sdm845_pciephy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(sdm845_pciephy_reset_l),
+-	.vreg_list		= qmp_phy_vreg_l,
+-	.num_vregs		= ARRAY_SIZE(qmp_phy_vreg_l),
++	.vreg_list		= glymur_qmp_phy_vreg_l,
++	.num_vregs		= ARRAY_SIZE(glymur_qmp_phy_vreg_l),
+ 
+ 	.regs			= pciephy_v8_50_regs_layout,
+ 
+@@ -5571,8 +5575,8 @@ static const struct qmp_phy_cfg glymur_qmp_gen4x2_pciephy_cfg = {
+ 
+ 	.reset_list		= sdm845_pciephy_reset_l,
+ 	.num_resets		= ARRAY_SIZE(sdm845_pciephy_reset_l),
+-	.vreg_list		= qmp_phy_vreg_l,
+-	.num_vregs		= ARRAY_SIZE(qmp_phy_vreg_l),
++	.vreg_list		= glymur_qmp_phy_vreg_l,
++	.num_vregs		= ARRAY_SIZE(glymur_qmp_phy_vreg_l),
+ 
+ 	.regs			= pciephy_v8_regs_layout,
+ 
+-- 
+2.43.0
+
+
+From 6ce567dd46d9db006333ce7b9f1b3bcab7f48351 Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 13 Oct 2026 03:16:47 -0700
+Subject: [PATCH 3/3] arm64: dts: qcom: Add refgen supplies for PCIe PHY on
+ Glymur and Mahua boards
+
+The PCIe PHYs on Glymur and Mahua require a reference voltage provided by
+REFGEN, which in turn is powered by two LDOs.
+
+Since there is no devicetree node for REFGEN, add the vdda-refgen0p9 and
+vdda-refgen1p2 supplies for each PCIe PHY node.
+
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+---
+ .../boot/dts/qcom/glymur-asus-zenbook-a14-ux3407na.dts      | 2 ++
+ .../boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts      | 4 ++++
+ arch/arm64/boot/dts/qcom/glymur-crd.dtsi                    | 6 ++++++
+ arch/arm64/boot/dts/qcom/glymur-hp-elitebook-x-g2q.dts      | 4 ++++
+ arch/arm64/boot/dts/qcom/glymur-lenovo-yoga-slim7x.dts      | 6 ++++++
+ arch/arm64/boot/dts/qcom/glymur-qcb.dts                     | 6 ++++++
+ arch/arm64/boot/dts/qcom/mahua-crd.dts                      | 2 ++
+ .../boot/dts/qcom/mahua-lenovo-thinkpad-t14s-gen7-lcd.dts   | 6 ++++++
+ 8 files changed, 36 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a14-ux3407na.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a14-ux3407na.dts
+index e96e65a0c..d1746845a 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a14-ux3407na.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a14-ux3407na.dts
+@@ -735,6 +735,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c1>;
+ 	vdda-pll-supply = <&vreg_l4f1>;
++	vdda-refgen0p9-supply = <&vreg_l1c1>;
++	vdda-refgen1p2-supply = <&vreg_l4f1>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+index 95da35125..bf3c828c8 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-asus-zenbook-a16-ux3607oa.dts
+@@ -818,6 +818,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1>;
+ 	vdda-pll-supply = <&vreg_l4f_e1>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1>;
+ 
+ 	status = "okay";
+ };
+@@ -843,6 +845,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0>;
+ 	vdda-pll-supply = <&vreg_l4c_e0>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0>;
++	vdda-refgen1p2-supply = <&vreg_l4c_e0>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+index 58158b51f..b3f876956 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
++++ b/arch/arm64/boot/dts/qcom/glymur-crd.dtsi
+@@ -764,6 +764,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p08>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p08>;
+ 
+ 	status = "okay";
+ };
+@@ -800,6 +802,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0_0p82>;
+ 	vdda-pll-supply = <&vreg_l4h_e0_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4h_e0_1p2>;
+ 
+ 	status = "okay";
+ };
+@@ -821,6 +825,8 @@ &pcie6 {
+ &pcie6_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p08>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p08>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/glymur-hp-elitebook-x-g2q.dts b/arch/arm64/boot/dts/qcom/glymur-hp-elitebook-x-g2q.dts
+index 096d40e49..7f79470ec 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-hp-elitebook-x-g2q.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-hp-elitebook-x-g2q.dts
+@@ -545,6 +545,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p91>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p91>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
+ 
+ 	status = "okay";
+ };
+@@ -581,6 +583,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0_0p94>;
+ 	vdda-pll-supply = <&vreg_l4h_e0_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0_0p94>;
++	vdda-refgen1p2-supply = <&vreg_l4h_e0_1p2>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/glymur-lenovo-yoga-slim7x.dts b/arch/arm64/boot/dts/qcom/glymur-lenovo-yoga-slim7x.dts
+index 769f195c9..130946ba9 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-lenovo-yoga-slim7x.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-lenovo-yoga-slim7x.dts
+@@ -743,6 +743,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1>;
+ 	vdda-pll-supply = <&vreg_l4f_e1>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1>;
+ 
+ 	status = "okay";
+ };
+@@ -779,6 +781,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0>;
+ 	vdda-pll-supply = <&vreg_l4h_e0>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0>;
++	vdda-refgen1p2-supply = <&vreg_l4h_e0>;
+ 
+ 	status = "okay";
+ };
+@@ -800,6 +804,8 @@ &pcie6 {
+ &pcie6_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1>;
+ 	vdda-pll-supply = <&vreg_l4f_e1>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/glymur-qcb.dts b/arch/arm64/boot/dts/qcom/glymur-qcb.dts
+index 17d8ff3ae..f26bdc1cd 100644
+--- a/arch/arm64/boot/dts/qcom/glymur-qcb.dts
++++ b/arch/arm64/boot/dts/qcom/glymur-qcb.dts
+@@ -448,6 +448,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p08>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p08>;
+ 
+ 	status = "okay";
+ };
+@@ -484,6 +486,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0_0p82>;
+ 	vdda-pll-supply = <&vreg_l4h_e0_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4h_e0_1p2>;
+ 
+ 	status = "okay";
+ };
+@@ -505,6 +509,8 @@ &pcie6 {
+ &pcie6_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p08>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p08>;
+ 
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/qcom/mahua-crd.dts b/arch/arm64/boot/dts/qcom/mahua-crd.dts
+index 17e40f2a6..45c95543f 100644
+--- a/arch/arm64/boot/dts/qcom/mahua-crd.dts
++++ b/arch/arm64/boot/dts/qcom/mahua-crd.dts
+@@ -23,6 +23,8 @@ / {
+ &pcie3b_phy {
+ 	vdda-phy-supply = <&vreg_l3c_e1_0p89>;
+ 	vdda-pll-supply = <&vreg_l2c_e1_1p14>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p08>;
+ };
+ 
+ &tcsr {
+diff --git a/arch/arm64/boot/dts/qcom/mahua-lenovo-thinkpad-t14s-gen7-lcd.dts b/arch/arm64/boot/dts/qcom/mahua-lenovo-thinkpad-t14s-gen7-lcd.dts
+index 26d6d8285..ac7e13821 100644
+--- a/arch/arm64/boot/dts/qcom/mahua-lenovo-thinkpad-t14s-gen7-lcd.dts
++++ b/arch/arm64/boot/dts/qcom/mahua-lenovo-thinkpad-t14s-gen7-lcd.dts
+@@ -813,6 +813,8 @@ &pcie4 {
+ &pcie4_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
+ 
+ 	status = "okay";
+ };
+@@ -850,6 +852,8 @@ &pcie5 {
+ &pcie5_phy {
+ 	vdda-phy-supply = <&vreg_l2f_e0_0p94>;
+ 	vdda-pll-supply = <&vreg_l4h_e0_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l2f_e0_0p94>;
++	vdda-refgen1p2-supply = <&vreg_l4h_e0_1p2>;
+ 
+ 	status = "okay";
+ };
+@@ -872,6 +876,8 @@ &pcie6 {
+ &pcie6_phy {
+ 	vdda-phy-supply = <&vreg_l1c_e1_0p82>;
+ 	vdda-pll-supply = <&vreg_l4f_e1_1p2>;
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p82>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
+ 
+ 	status = "okay";
+ };
+-- 
+2.43.0
+

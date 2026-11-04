@@ -16,14 +16,72 @@ let
     systemd.user.services.pipewire.environment.ALSA_CONFIG_UCM2 = "${ucm2}";
     systemd.user.services.wireplumber.environment.ALSA_CONFIG_UCM2 = "${ucm2}";
 
-    # The 4-channel speaker sink is FL FR RL RR (woofers + tweeters); the
+    # The 4-channel speaker sink is FL FR = tweeters, RL RR = woofers; the
     # default psd upmix only sends the stereo difference to the rear pair.
     services.pipewire.extraConfig = lib.genAttrs [ "client" "pipewire-pulse" ] (_: {
       "99-omnibook-upmix"."stream.properties" = {
         "channelmix.upmix" = true;
         "channelmix.upmix-method" = "simple";
       };
-    });
+    }) // {
+      # Stereo "Speakers" sink in front of the 4-channel one: clients that link
+      # ports themselves (EasyEffects) only feed FL/FR, leaving the woofers silent.
+      pipewire."60-omnibook-speakers"."context.modules" = [{
+        name = "libpipewire-module-loopback";
+        args = {
+          "node.description" = "Speakers";
+          "capture.props" = {
+            "node.name" = "omnibook_speakers";
+            "media.class" = "Audio/Sink";
+            "audio.position" = [ "FL" "FR" ];
+            "priority.session" = 2000;
+          };
+          "playback.props" = {
+            "node.name" = "omnibook_speakers_output";
+            "node.passive" = true;
+            "audio.position" = [ "FL" "FR" ];
+            "target.object" = "alsa_output.platform-sound.HiFi__Speaker__sink";
+            "channelmix.upmix" = true;
+            "channelmix.upmix-method" = "simple";
+          };
+        };
+      }];
+    };
+
+    # Pro Audio opens the PCM without the UCM enable sequence (speaker paths
+    # stay off), so it is silent.
+    services.pipewire.wireplumber.extraConfig."51-omnibook-no-pro-audio" = {
+      "monitor.alsa.rules" = [
+        {
+          matches = [{ "device.name" = "alsa_card.platform-sound"; }];
+          actions.update-props."api.acp.disable-pro-audio" = true;
+        }
+        {
+          # The raw sink only feeds the "Speakers" loopback; make that obvious.
+          matches = [{ "node.name" = "alsa_output.platform-sound.HiFi__Speaker__sink"; }];
+          actions.update-props = {
+            "node.description" = "Speakers (raw 4-channel, do not use)";
+            "priority.session" = 500;
+          };
+        }
+      ];
+    };
+
+    # "Speakers" plays into the raw sink, so its volume scales everything: keep
+    # it at 100% (the kernel still caps the amplifiers).
+    systemd.user.services.omnibook-raw-speaker-volume = {
+      description = "Set the raw 4-channel speaker sink to 100%";
+      wantedBy = [ "default.target" ];
+      after = [ "wireplumber.service" "pipewire-pulse.service" ];
+      path = [ pkgs.pulseaudio pkgs.coreutils ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        for _ in $(seq 30); do
+          pactl set-sink-volume alsa_output.platform-sound.HiFi__Speaker__sink 100% && exit 0
+          sleep 1
+        done
+      '';
+    };
 
     # Mesa 26.2 lacks Mahua's Adreno X2-85 (kernel reports 0x165_44060030) and
     # falls back to llvmpipe; reuse Glymur's X2-85 entry (same registers, 3
@@ -41,12 +99,26 @@ let
     # SDDM refuses root logins.
     users.users.nixos = {
       isNormalUser = true;
-      extraGroups = [ "wheel" "video" "networkmanager" ];
+      extraGroups = [ "wheel" "video" "networkmanager" "fastrpc" ];
       initialPassword = "nixos";
     };
   };
 
   dspFw = "qcom/glymur/hp/omnibook-ultra-14-kg0xxx";
+  dspFiles = [ "qcadsp8480.mbn" "adsp_dtbs.elf" "qccdsp8480.mbn" "cdsp_dtbs.elf" ];
+  dspFile = f:
+    let p = ./firmware + "/${dspFw}/${f}"; in
+    if builtins.pathExists p then p else throw ''
+      HP firmware missing: firmware/${dspFw}/${f}.
+      Run ./extract-firmware.sh (see README, "Firmware"), then build with
+      nix build "path:$PWD" (git-ignored files are invisible to a git flake).
+    '';
+
+  fastrpc = pkgs.callPackage ./fastrpc.nix { };
+
+  # CDSP process shells from the Windows CDSP package (extract-firmware.sh).
+  dspShells = lib.optional (builtins.pathExists ./dsp/cdsp)
+    (pkgs.runCommand "omnibook-cdsp-shells" { } "cp -r ${./dsp/cdsp} $out");
 
   # UCM looks up conf.d/<driver>/<card long name>.conf; alsa-ucm-conf only has
   # GLYMUR-CRD.conf (same four WSA8845 + VA DMIC layout and control names).
@@ -64,23 +136,24 @@ in
 
   # Custom Linux Kernel + Lore Patch Series
   boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.buildLinux {
-    version = "7.3.0-rc6-next-20261009";
-    modDirVersion = "7.3.0-rc6-next-20261009";
+    version = "7.4.0-rc1-next-20261102";
+    modDirVersion = "7.4.0-rc1-next-20261102";
 
     src = pkgs.fetchgit {
       url = "https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git";
-      rev = "next-20261009";
-      hash = "sha256-z+dBVs06zR5Ll8kqEILmLz2DozLZF+DIWgbNHRSL1U4=";
+      rev = "next-20261102";
+      hash = "sha256-1+ymJDfbviSIkoVDVb0d2Ui6wiMOdxne8TIurXe9UEk=";
     };
 
     kernelPatches = [
       {
         # 2/5 (glymur GMU compatible) and 5/5 (mahua.dtsi GPU/GMU) of
-        # mahua-gpu-v1; 1/5, 3/5 and the bindings are in next-20261009.
+        # mahua-gpu-v1; 1/5, 3/5 and the bindings are in linux-next.
         name = "mahua-gpu-v1-dt";
         patch = ./patches/mahua-gpu-v1-dt.patch;
       }
       {
+        # Board series v2 (3 patches) + the Mahua DTS derived from it.
         name = "glymur-mahua-hp-omnibook-ultra-kg0xxx";
         patch = ./patches/glymur-mahua-hp-omnibook-ultra-kg0xxx.patch;
       }
@@ -90,9 +163,9 @@ in
         patch = ./patches/glymur-mahua-hp-omnibook-ultra-kg0xxx_2.patch;
       }
       {
-        # Glymur DP PHY PLL programming (USB-C DisplayPort), v5 (11 patches).
-        name = "glymur-dp-phy-pll-v5";
-        patch = ./patches/glymur-dp-phy-pll-v5.patch;
+        # Glymur DP PHY PLL programming (USB-C DisplayPort), v6 (11 patches).
+        name = "glymur-dp-phy-pll-v6";
+        patch = ./patches/glymur-dp-phy-pll-v6.patch;
       }
       {
         name = "dispcc-glymur-no-init-park";
@@ -114,19 +187,49 @@ in
         patch = ./patches/pmic-glink-altmode-ack-undescribed-ports.patch;
       }
       {
-        # Bus clash / parity errors / detached speaker after SoundWire clock stop.
-        name = "soundwire-qcom-irq-before-clock-gate-v2";
-        patch = ./patches/soundwire-qcom-irq-before-clock-gate-v2.patch;
+        # PCIe PHY REFGEN supplies (driver, binding, in-tree boards); ours are
+        # in the _2 patch.
+        name = "qmp-pcie-refgen-v3";
+        patch = ./patches/qmp-pcie-refgen-v3.patch;
       }
       {
-        # Report GMEM of the active slices only (Mahua has fused-off slices).
-        name = "a8xx-gmem-active-slices-v2";
-        patch = ./patches/a8xx-gmem-active-slices-v2.patch;
+        # Suspend: USB GDSCs keep their state, xHCI survives s2idle resume.
+        name = "gcc-glymur-usb-ret-on";
+        patch = ./patches/gcc-glymur-usb-ret-on.patch;
       }
       {
-        # Extra DTB for the "KDE (msm, USB-C DP test)" boot entry.
-        name = "mahua-bringup-usbc-dp";
-        patch = ./patches/mahua-bringup-usbc-dp.patch;
+        # Suspend / USB runtime resume with the M31 eUSB2 PHY.
+        name = "glymur-usb-resume-hs-terminations";
+        patch = ./patches/glymur-usb-resume-hs-terminations.patch;
+      }
+      {
+        # Suspend: drop the CPU bwmon DDR vote so DDR can idle.
+        name = "icc-bwmon-suspend";
+        patch = ./patches/icc-bwmon-suspend.patch;
+      }
+      {
+        # Suspend: no QSCRATCH access with clocks off when a cable changes.
+        name = "dwc3-qcom-defer-vbus-override-v2";
+        patch = ./patches/dwc3-qcom-defer-vbus-override-v2.patch;
+      }
+      {
+        # USB-C DP: balanced runtime PM references across plug/unplug.
+        name = "msm-dp-runtime-pm-per-plug-v3";
+        patch = ./patches/msm-dp-runtime-pm-per-plug-v3.patch;
+      }
+      {
+        name = "a8xx-gmem-base-v2";
+        patch = ./patches/a8xx-gmem-base-v2.patch;
+      }
+      {
+        # CDSP fastrpc context banks 12-14 had the wrong reg (SMMU faults).
+        name = "glymur-fastrpc-cdsp-cb-reg-v5";
+        patch = ./patches/glymur-fastrpc-cdsp-cb-reg-v5.patch;
+      }
+      {
+        # Extra DTB with the ACPI "CL4" cluster idle state, for the boost test entry.
+        name = "mahua-bringup-cluster-cl4";
+        patch = ./patches/mahua-bringup-cluster-cl4.patch;
       }
     ];
 
@@ -195,24 +298,43 @@ in
       # Early console on the EFI framebuffer, for "earlycon" below
       SERIAL_EARLYCON = yes;
 
-      # ath12k_dbg() output (modprobe ath12k debug_mask=...), for Wi-Fi bring-up
-      ATH12K_DEBUG = yes;
-
       # arm64 defconfig leaves these off: BlueZ then has no RFCOMM (headset
       # HFP/HSP), no BNEP (PAN) and no LE-only features.
       BT_LE = yes;
       BT_RFCOMM = module;
       BT_RFCOMM_TTY = yes;
       BT_BNEP = module;
+
+      # CPUCP mailbox (SCMI transport for CPU frequency) built in: as a module
+      # the SCMI perf protocol never answers (Konrad Dybcio: "Timing"),
+      # https://lore.kernel.org/linux-arm-msm/CAAnD8RZKDiv7eW=63HP+obgwXEUCvoQLNzC+xa3quy3P=PT-QA@mail.gmail.com/
+      QCOM_CPUCP_MBOX = yes;
+
+      NTFS3_FS = yes;
+      EXFAT_FS = yes;
     };
   });
 
   # Bring-up variant of the HP OmniBook Ultra (Mahua) device tree: firmware-
-  # configured eUSB2 repeaters and no USB-C DP (see the _2 patch, item 6).
+  # configured eUSB2 repeaters (see the _2 patch). USB-C DP is on.
   hardware.deviceTree = {
     enable = true;
     name = "qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb";
   };
+
+  # scmi-cpufreq registers the boost OPPs (up to 4.72 GHz) but leaves them off.
+  # /usr/lib/dsp is on libcdsprpc's default DSP search path (shells for the CDSP).
+  systemd.tmpfiles.rules = [ "w /sys/devices/system/cpu/cpufreq/boost - - - - 1" ]
+    ++ map (d: "L+ /usr/lib/dsp - - - - ${d}") dspShells;
+
+  # FastRPC / NPU: libcdsprpc, its devices and the DMA heap it allocates from,
+  # for members of the fastrpc group. The QNN libraries are not in the image.
+  users.groups.fastrpc = { };
+  boot.kernelModules = [ "system_heap" ];
+  services.udev.extraRules = ''
+    SUBSYSTEM=="misc", KERNEL=="fastrpc-cdsp*", GROUP="fastrpc", MODE="0660"
+    SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="fastrpc", MODE="0660"
+  '';
 
   boot.kernelParams = [
     # Bring-up console: earlycon=efifb prints before any DRM driver is up,
@@ -261,11 +383,6 @@ in
       cp -r ${./firmware} $out/lib/firmware
     '');
 
-  # Other Windows Wi-Fi board files, to swap in at runtime (see README).
-  environment.etc = lib.mkIf (builtins.pathExists ./wlan-bdf) {
-    "omnibook/wlan-bdf".source = ./wlan-bdf;
-  };
-
   # No TPM node in glymur.dtsi/mahua.dtsi: without this both stages wait 90 s
   # for /dev/tpmrm0 (the systemd.mask= kernel args never reached the initrd).
   systemd.tpm2.enable = false;
@@ -298,13 +415,16 @@ in
     fastfetch
     btop
     (writeShellScriptBin "omnibook-diag" ''
-      export PATH=${lib.makeBinPath [ coreutils util-linux gnugrep findutils systemd kmod alsa-utils mesa-demos pipewire wireplumber pulseaudio usbutils bluez edid-decode ]}:$PATH
+      export PATH=${lib.makeBinPath [ coreutils util-linux gnugrep findutils systemd kmod alsa-utils mesa-demos pipewire wireplumber pulseaudio usbutils bluez edid-decode stress-ng ]}:$PATH
       export ALSA_CONFIG_UCM2=${ucm2}
       ${builtins.readFile ./omnibook-diag.sh}
     '')
     powertop
     stress-ng
     vulkan-tools
+    alsa-utils
+    _7zz
+    fastrpc
   ];
 
   # Bring-up: root has no password, so sulogin refuses emergency/rescue mode
@@ -362,10 +482,10 @@ in
       "ucsi_glink"
     ];
     # qcom_q6v5_pas also boots the ADSP/CDSP from the initrd.
-    systemd.contents = lib.genAttrs
-      (map (f: "/fw/${dspFw}/${f}")
-        [ "qcadsp8480.mbn" "adsp_dtbs.elf" "qccdsp8480.mbn" "cdsp_dtbs.elf" ])
-      (p: { source = ./firmware + lib.removePrefix "/fw" p; });
+    systemd.contents = lib.listToAttrs (map (f: {
+      name = "/fw/${dspFw}/${f}";
+      value.source = dspFile f;
+    }) dspFiles);
     allowMissingModules = true;
   };
 }

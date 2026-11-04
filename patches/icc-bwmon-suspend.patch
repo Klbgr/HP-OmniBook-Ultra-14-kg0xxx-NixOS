@@ -1,0 +1,77 @@
+From 6ce990735aae608650ab4354fadb918fa7704145 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ram=C3=B3n=20Jes=C3=BAs=20Miranda?=
+ <ramonjesusmiranda@gmail.com>
+Date: Sun, 18 Oct 2026 15:54:24 +0000
+Subject: [PATCH] soc: qcom: icc-bwmon: drop the bandwidth vote across system
+ suspend
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+icc-bwmon has no PM ops: the interconnect vote derived from the last
+sample stays in place while the system is suspended. On X1E80100 the CPU
+bwmon was left voting 800 MB/s peak on the DDR path during s2idle, which
+keeps DDR out of its low power modes (the qcom_stats "ddr" counter never
+advances).
+
+Disable the monitor, drop the OPP vote on suspend and restart monitoring
+on resume. With this change DDR reaches its low power mode for >99% of
+s2idle on a Microsoft Surface Pro 11 (X1E80100).
+
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Ramón Jesús Miranda <ramonjesusmiranda@gmail.com>
+---
+ drivers/soc/qcom/icc-bwmon.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/drivers/soc/qcom/icc-bwmon.c b/drivers/soc/qcom/icc-bwmon.c
+index 597f9025e..820a074fd 100644
+--- a/drivers/soc/qcom/icc-bwmon.c
++++ b/drivers/soc/qcom/icc-bwmon.c
+@@ -815,6 +815,35 @@ static void bwmon_remove(struct platform_device *pdev)
+ 	free_irq(bwmon->irq, bwmon);
+ }
+ 
++/*
++ * The bandwidth vote of the last sample stays in place across system
++ * suspend and keeps DDR out of its low power modes. Drop it while
++ * suspended and restart monitoring on resume.
++ */
++static int bwmon_suspend(struct device *dev)
++{
++	struct icc_bwmon *bwmon = dev_get_drvdata(dev);
++
++	disable_irq(bwmon->irq);
++	bwmon_disable(bwmon);
++	dev_pm_opp_set_opp(dev, NULL);
++	bwmon->current_kbps = 0;
++
++	return 0;
++}
++
++static int bwmon_resume(struct device *dev)
++{
++	struct icc_bwmon *bwmon = dev_get_drvdata(dev);
++
++	bwmon_start(bwmon);
++	enable_irq(bwmon->irq);
++
++	return 0;
++}
++
++static DEFINE_SIMPLE_DEV_PM_OPS(bwmon_pm_ops, bwmon_suspend, bwmon_resume);
++
+ static const struct icc_bwmon_data msm8998_bwmon_data = {
+ 	.sample_ms = 4,
+ 	.count_unit_kb = 1024,
+@@ -879,6 +908,7 @@ static struct platform_driver bwmon_driver = {
+ 	.driver = {
+ 		.name = "qcom-bwmon",
+ 		.of_match_table = bwmon_of_match,
++		.pm = pm_sleep_ptr(&bwmon_pm_ops),
+ 	},
+ };
+ module_platform_driver(bwmon_driver);
+-- 
+2.43.0
+

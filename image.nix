@@ -32,7 +32,7 @@ in
           "/EFI/nixos/kernel".source = "${build.kernel}/${config.system.boot.loader.kernelFile}";
           "/EFI/nixos/initrd".source = "${build.initialRamdisk}/${config.system.boot.loader.initrdFile}";
           "/EFI/nixos/omnibook.dtb".source = "${dtbs}/${config.hardware.deviceTree.name}";
-          "/EFI/nixos/omnibook-dp.dtb".source = "${dtbs}/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-dp.dtb";
+          "/EFI/nixos/omnibook-cl4.dtb".source = "${dtbs}/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dtb";
           "/loader/loader.conf".source = pkgs.writeText "loader.conf" ''
             timeout 10
             default omnibook-kde-msm.conf
@@ -45,8 +45,8 @@ in
             entry "NixOS KDE (software rendering)" kde;
           "/loader/entries/omnibook-kde-msm.conf".source =
             entry "NixOS KDE (msm)" (withMsm kde);
-          "/loader/entries/omnibook-kde-msm-dp.conf".source =
-            entryDtb "NixOS KDE (msm, USB-C DP test)" "omnibook-dp.dtb" (withMsm kde);
+          "/loader/entries/omnibook-kde-msm-cl4.conf".source =
+            entryDtb "NixOS KDE (msm, cluster CL4 test)" "omnibook-cl4.dtb" (withMsm kde);
         };
         repartConfig = {
           Type = "esp";

@@ -1,0 +1,69 @@
+From fa028bb3b893f85cb62b12434796927484372473 Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Wed, 4 Nov 2026 14:22:17 +0100
+Subject: [PATCH] arm64: dts: qcom: mahua-hp-omnibook-ultra: add a cluster CL4
+ test DTB
+
+Bring-up DTB plus the shallow cluster idle state (Cluster0.CL4, PSCI
+0x01000044) listed in the laptop's ACPI _LPI tables and in hamoa.dtsi but
+missing from glymur.dtsi. Test for the single-core boost OPPs.
+---
+ arch/arm64/boot/dts/qcom/Makefile             |  1 +
+ ...a-hp-omnibook-ultra-kg0xxx-bringup-cl4.dts | 33 +++++++++++++++++++
+ 2 files changed, 34 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 889df82ab..d4a9f8f66 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -67,6 +67,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk-ifp-mezzanine.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-crd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-lenovo-thinkpad-t14s-gen7-lcd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
+diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dts
+new file mode 100644
+index 000000000..fd3f82076
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dts
+@@ -0,0 +1,33 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Bring-up DTB plus the shallow cluster idle state the ACPI tables list
++ * ("Cluster0.CL4", PSCI 0x40, min residency 2500 us, latency 500 us) and that
++ * glymur.dtsi leaves out; hamoa.dtsi has the same state. Test for whether
++ * the firmware grants the boost OPPs once idle clusters can enter it.
++ */
++
++#include "mahua-hp-omnibook-ultra-kg0xxx-bringup.dts"
++
++/ {
++	model = "HP OmniBook Ultra Laptop 14-kg0xxx (bring-up, cluster CL4)";
++
++	cpus {
++		domain-idle-states {
++			cluster_cl4: cluster-sleep-1 {
++				compatible = "domain-idle-state";
++				arm,psci-suspend-param = <0x01000044>;
++				entry-latency-us = <350>;
++				exit-latency-us = <500>;
++				min-residency-us = <2500>;
++			};
++		};
++	};
++};
++
++&cluster0_pd {
++	domain-idle-states = <&cluster_cl4>, <&cluster_cl5>;
++};
++
++&cluster1_pd {
++	domain-idle-states = <&cluster_cl4>, <&cluster_cl5>;
++};
+-- 
+2.43.0
+

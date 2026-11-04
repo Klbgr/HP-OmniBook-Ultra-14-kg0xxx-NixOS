@@ -1,5 +1,17 @@
-HP OmniBook Ultra 14-kg0xxx board (Glymur DTS from 20260830-x2-hp-omnibook-ship-v1, bindings, SCM allowlist) + local Mahua DTS.
-Regenerated against next-20261009 (Makefile context).
+From b1b4380b9b775d4337e891f2ac9a8c866f40dd05 Mon Sep 17 00:00:00 2001
+From: Jason Pettit <jason.pettit@oss.qualcomm.com>
+Date: Sun, 1 Nov 2026 12:02:34 -0800
+Subject: [PATCH 1/4] dt-bindings: arm: qcom: add HP OmniBook Ultra 14-kg0xxx
+
+Document compatible for the HP OmniBook Ultra Laptop 14-kg0xxx, a
+Snapdragon X2 Elite (Glymur) laptop.
+
+Acked-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
+Assisted-by: LLM
+Signed-off-by: Jason Pettit <jason.pettit@oss.qualcomm.com>
+---
+ Documentation/devicetree/bindings/arm/qcom.yaml | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/Documentation/devicetree/bindings/arm/qcom.yaml b/Documentation/devicetree/bindings/arm/qcom.yaml
 index 121ca557c..ff30fb4a9 100644
@@ -13,25 +25,57 @@ index 121ca557c..ff30fb4a9 100644
                - lenovo,yoga-slim7x-gen11
                - qcom,glymur-crd
                - qcom,glymur-qcb
+-- 
+2.43.0
+
+
+From 5bf50b7283c79349f2532511188d4a5882abdf73 Mon Sep 17 00:00:00 2001
+From: Jason Pettit <jason.pettit@oss.qualcomm.com>
+Date: Sun, 1 Nov 2026 12:02:35 -0800
+Subject: [PATCH 2/4] arm64: dts: qcom: add HP OmniBook Ultra 14-kg0xxx
+
+Add board support for HP OmniBook Ultra 14" Next Gen AI PC
+(product SKU D29KLAS#ABA, board 8F03), a Snapdragon X2 Elite (Glymur)
+laptop, using the "hp,omnibook-ultra-kg0xxx" / "qcom,glymur" compatible.
+
+Enabled by this device tree:
+- internal eDP panel (2880 x 1800)
+- 3x USB Type-C with DisplayPort alt-mode, USB, Power Delivery
+- NVMe SSD on PCIe (pcie3b)
+- Wi-Fi and Bluetooth
+- HID-over-I2C keyboard, touchpad, touchscreen, lid switch
+- Adreno GPU and GMU (Freedreno GL on Mesa)
+- Audio playback and capture
+- Real-time clock
+- ADSP and CDSP
+- 5MP USB RGB Camera + IR Camera
+
+Assisted-by: LLM
+Signed-off-by: Jason Pettit <jason.pettit@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/Makefile             |   1 +
+ .../qcom/glymur-hp-omnibook-ultra-kg0xxx.dts  | 986 ++++++++++++++++++
+ 2 files changed, 987 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/glymur-hp-omnibook-ultra-kg0xxx.dts
+
 diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
-index 88230c4e0..aaa5cb77b 100644
+index 88230c4e0..cd63033b5 100644
 --- a/arch/arm64/boot/dts/qcom/Makefile
 +++ b/arch/arm64/boot/dts/qcom/Makefile
-@@ -20,6 +20,8 @@ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-asus-zenbook-a14-ux3407na.dtb
+@@ -20,6 +20,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-asus-zenbook-a14-ux3407na.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= glymur-asus-zenbook-a16-ux3607oa.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= glymur-crd.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-elitebook-x-g2q.dtb
 +dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-omnibook-ultra-kg0xxx.dtb
-+dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= glymur-lenovo-yoga-slim7x.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= glymur-qcb.dtb
  dtb-$(CONFIG_ARCH_QCOM)	+= hamoa-advantech-som-db5830.dtb
 diff --git a/arch/arm64/boot/dts/qcom/glymur-hp-omnibook-ultra-kg0xxx.dts b/arch/arm64/boot/dts/qcom/glymur-hp-omnibook-ultra-kg0xxx.dts
 new file mode 100644
-index 000000000..d1c1880a5
+index 000000000..fdf8df637
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/glymur-hp-omnibook-ultra-kg0xxx.dts
-@@ -0,0 +1,1012 @@
+@@ -0,0 +1,986 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
@@ -242,8 +286,7 @@ index 000000000..d1c1880a5
 +
 +	sound {
 +		compatible = "qcom,glymur-sndcard";
-+		/* This board reuses GLYMUR-CRD-tplg.bin from linux-firmware */
-+		model = "GLYMUR-CRD";
++		model = "GLYMUR-HP-OmniBook-Ultra-14-kg0xxx";
 +
 +		audio-routing = "WooferLeft IN", "WSA WSA_SPK1 OUT",
 +				"TweeterLeft IN", "WSA WSA_SPK2 OUT",
@@ -291,10 +334,9 @@ index 000000000..d1c1880a5
 +	wcn7850-pmu {
 +		compatible = "qcom,wcn7850-pmu";
 +		vdd-supply = <&vreg_wcn_0p95>;
-+		vddaon-supply = <&vreg_l15b_e0_1p8>;
-+		vdddig-supply = <&vreg_l15b_e0_1p8>;
++		vddaon-supply = <&vreg_wcn_0p95>;
++		vdddig-supply = <&vreg_wcn_0p95>;
 +		vddio-supply = <&vreg_l15b_e0_1p8>;
-+		vddio1p2-supply = <&vreg_l15b_e0_1p8>;
 +		vddrfa1p2-supply = <&vreg_l15b_e0_1p8>;
 +		vddrfa1p8-supply = <&vreg_l15b_e0_1p8>;
 +
@@ -412,7 +454,6 @@ index 000000000..d1c1880a5
 +			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 +		};
 +
-+		/* usb_hs (internal camera bus) M31 eUSB2 phy vdd. */
 +		vreg_l2h_e0_0p88: ldo2 {
 +			regulator-name = "vreg_l2h_e0_0p88";
 +			regulator-min-microvolt = <880000>;
@@ -488,15 +529,6 @@ index 000000000..d1c1880a5
 +	};
 +};
 +
-+&gmu {
-+	status = "okay";
-+};
-+
-+&gpu {
-+	status = "okay";
-+};
-+
-+/* keyboard: HID-over-I2C on i2c0 */
 +&i2c0 {
 +	clock-frequency = <400000>;
 +
@@ -706,10 +738,6 @@ index 000000000..d1c1880a5
 +	status = "okay";
 +};
 +
-+&remoteproc_soccp {
-+	status = "okay";
-+};
-+
 +&smb2370_j_e2_eusb2_repeater {
 +	vdd18-supply = <&vreg_l15b_e0_1p8>;
 +	vdd3-supply = <&vreg_l7b_e0_3p1>;
@@ -806,11 +834,10 @@ index 000000000..d1c1880a5
 +};
 +
 +&tlmm {
-+	gpio-reserved-ranges = <4 4>,
-+			       <10 2>,
-+			       <44 4>,
-+			       <65 1>,
-+			       <90 1>;
++	gpio-reserved-ranges = <4 4>,	/* EC secure I3C */
++			       <10 2>,	/* SoC debug UART */
++			       <44 4>,	/* TPM SPI */
++			       <65 1>;	/* EC_RESET */
 +
 +	edp_pwr_en: edp-pwr-en-state {
 +		pins = "gpio70";
@@ -853,12 +880,6 @@ index 000000000..d1c1880a5
 +	ts_default: ts-default-state {
 +		int-pins {
 +			pins = "gpio51";
-+			function = "gpio";
-+			bias-disable;
-+		};
-+
-+		reset-pins {
-+			pins = "gpio48";
 +			function = "gpio";
 +			bias-disable;
 +		};
@@ -942,7 +963,6 @@ index 000000000..d1c1880a5
 +	};
 +};
 +
-+/* usb_0: 2nd USB-C port (host + DP alt-mode) */
 +&usb_0 {
 +	status = "okay";
 +};
@@ -972,12 +992,10 @@ index 000000000..d1c1880a5
 +	remote-endpoint = <&pmic_glink_ss_in>;
 +};
 +
-+/* usb_1: 3rd USB-C port (host + DP alt-mode) */
 +&usb_1 {
 +	status = "okay";
 +};
 +
-+/* usb_1 DP alt-mode wiring (3rd port; hsphy/qmpphy already enabled above). */
 +&usb_1_dwc3_hs {
 +	remote-endpoint = <&pmic_glink_hs_in1>;
 +};
@@ -1044,12 +1062,79 @@ index 000000000..d1c1880a5
 +
 +	status = "okay";
 +};
+-- 
+2.43.0
+
+
+From 6a4e73015c0ee9700971dd7c627ff6c34e7f99f2 Mon Sep 17 00:00:00 2001
+From: Jason Pettit <jason.pettit@oss.qualcomm.com>
+Date: Sun, 1 Nov 2026 12:02:36 -0800
+Subject: [PATCH 3/4] firmware: qcom: scm: add HP OmniBook Ultra 14-kg0xxx to
+ QSEECOM allowlist
+
+The HP OmniBook Ultra Laptop 14-kg0xxx is a Snapdragon X2 Elite
+(Glymur) laptop whose firmware exposes EFI variables through QSEECOM.
+Add its board compatible to the QSEECOM allowlist so that EFI variable
+access (efivarfs) works on this machine.
+
+Reviewed-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Assisted-by: LLM
+Signed-off-by: Jason Pettit <jason.pettit@oss.qualcomm.com>
+---
+ drivers/firmware/qcom/qcom_scm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
+index 43e250fae..765876942 100644
+--- a/drivers/firmware/qcom/qcom_scm.c
++++ b/drivers/firmware/qcom/qcom_scm.c
+@@ -2238,6 +2238,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
+ 	{ .compatible = "honor,magicbook-art-14-snapdragon" },
+ 	{ .compatible = "hp,elitebook-ultra-g1q" },
+ 	{ .compatible = "hp,elitebook-x-g2q" },
++	{ .compatible = "hp,omnibook-ultra-kg0xxx" },
+ 	{ .compatible = "hp,omnibook-x14" },
+ 	{ .compatible = "huawei,gaokun3" },
+ 	{ .compatible = "lenovo,flex-5g" },
+-- 
+2.43.0
+
+
+From 881ed49718ba56e697e2f65c6888ab1e07b20dd2 Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Tue, 3 Nov 2026 10:11:59 +0100
+Subject: [PATCH 4/4] arm64: dts: qcom: add HP OmniBook Ultra 14-kg0xxx (Mahua,
+ local)
+
+Local derivative of glymur-hp-omnibook-ultra-kg0xxx.dts (v2) for the
+12-core Mahua part: include mahua.dtsi, drop the cluster2 PMIC
+(pmcx0102_d_e0), "qcom,mahua" compatible, no pcie3_phy (Mahua has no
+shared gen5x8 PHY), sound model kept at "GLYMUR-CRD" so the
+linux-firmware topology is found.
+---
+ arch/arm64/boot/dts/qcom/Makefile             |   1 +
+ .../qcom/mahua-hp-omnibook-ultra-kg0xxx.dts   | 985 ++++++++++++++++++
+ 2 files changed, 986 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index cd63033b5..aaa5cb77b 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -21,6 +21,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-asus-zenbook-a16-ux3607oa.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-crd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-elitebook-x-g2q.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-hp-omnibook-ultra-kg0xxx.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-lenovo-yoga-slim7x.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= glymur-qcb.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= hamoa-advantech-som-db5830.dtb
 diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
 new file mode 100644
-index 000000000..638bc4361
+index 000000000..3fc2b9a96
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx.dts
-@@ -0,0 +1,1006 @@
+@@ -0,0 +1,985 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
@@ -1264,7 +1349,11 @@ index 000000000..638bc4361
 +
 +	sound {
 +		compatible = "qcom,glymur-sndcard";
-+		/* This board reuses GLYMUR-CRD-tplg.bin from linux-firmware */
++		/*
++		 * v2 names the card "GLYMUR-HP-OmniBook-Ultra-14-kg0xxx", but
++		 * linux-firmware has no topology under that name: keep the
++		 * CRD one (qcom/glymur/GLYMUR-CRD-tplg.bin), as in v1.
++		 */
 +		model = "GLYMUR-CRD";
 +
 +		audio-routing = "WooferLeft IN", "WSA WSA_SPK1 OUT",
@@ -1313,10 +1402,9 @@ index 000000000..638bc4361
 +	wcn7850-pmu {
 +		compatible = "qcom,wcn7850-pmu";
 +		vdd-supply = <&vreg_wcn_0p95>;
-+		vddaon-supply = <&vreg_l15b_e0_1p8>;
-+		vdddig-supply = <&vreg_l15b_e0_1p8>;
++		vddaon-supply = <&vreg_wcn_0p95>;
++		vdddig-supply = <&vreg_wcn_0p95>;
 +		vddio-supply = <&vreg_l15b_e0_1p8>;
-+		vddio1p2-supply = <&vreg_l15b_e0_1p8>;
 +		vddrfa1p2-supply = <&vreg_l15b_e0_1p8>;
 +		vddrfa1p8-supply = <&vreg_l15b_e0_1p8>;
 +
@@ -1434,7 +1522,6 @@ index 000000000..638bc4361
 +			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 +		};
 +
-+		/* usb_hs (internal camera bus) M31 eUSB2 phy vdd. */
 +		vreg_l2h_e0_0p88: ldo2 {
 +			regulator-name = "vreg_l2h_e0_0p88";
 +			regulator-min-microvolt = <880000>;
@@ -1510,15 +1597,6 @@ index 000000000..638bc4361
 +	};
 +};
 +
-+&gmu {
-+	status = "okay";
-+};
-+
-+&gpu {
-+	status = "okay";
-+};
-+
-+/* keyboard: HID-over-I2C on i2c0 */
 +&i2c0 {
 +	clock-frequency = <400000>;
 +
@@ -1718,10 +1796,6 @@ index 000000000..638bc4361
 +	status = "okay";
 +};
 +
-+&remoteproc_soccp {
-+	status = "okay";
-+};
-+
 +&smb2370_j_e2_eusb2_repeater {
 +	vdd18-supply = <&vreg_l15b_e0_1p8>;
 +	vdd3-supply = <&vreg_l7b_e0_3p1>;
@@ -1818,11 +1892,10 @@ index 000000000..638bc4361
 +};
 +
 +&tlmm {
-+	gpio-reserved-ranges = <4 4>,
-+			       <10 2>,
-+			       <44 4>,
-+			       <65 1>,
-+			       <90 1>;
++	gpio-reserved-ranges = <4 4>,	/* EC secure I3C */
++			       <10 2>,	/* SoC debug UART */
++			       <44 4>,	/* TPM SPI */
++			       <65 1>;	/* EC_RESET */
 +
 +	edp_pwr_en: edp-pwr-en-state {
 +		pins = "gpio70";
@@ -1865,12 +1938,6 @@ index 000000000..638bc4361
 +	ts_default: ts-default-state {
 +		int-pins {
 +			pins = "gpio51";
-+			function = "gpio";
-+			bias-disable;
-+		};
-+
-+		reset-pins {
-+			pins = "gpio48";
 +			function = "gpio";
 +			bias-disable;
 +		};
@@ -1954,7 +2021,6 @@ index 000000000..638bc4361
 +	};
 +};
 +
-+/* usb_0: 2nd USB-C port (host + DP alt-mode) */
 +&usb_0 {
 +	status = "okay";
 +};
@@ -1984,12 +2050,10 @@ index 000000000..638bc4361
 +	remote-endpoint = <&pmic_glink_ss_in>;
 +};
 +
-+/* usb_1: 3rd USB-C port (host + DP alt-mode) */
 +&usb_1 {
 +	status = "okay";
 +};
 +
-+/* usb_1 DP alt-mode wiring (3rd port; hsphy/qmpphy already enabled above). */
 +&usb_1_dwc3_hs {
 +	remote-endpoint = <&pmic_glink_hs_in1>;
 +};
@@ -2056,15 +2120,6 @@ index 000000000..638bc4361
 +
 +	status = "okay";
 +};
-diff --git a/drivers/firmware/qcom/qcom_scm.c b/drivers/firmware/qcom/qcom_scm.c
-index 43e250fae..765876942 100644
---- a/drivers/firmware/qcom/qcom_scm.c
-+++ b/drivers/firmware/qcom/qcom_scm.c
-@@ -2238,6 +2238,7 @@ static const struct of_device_id qcom_scm_qseecom_allowlist[] __maybe_unused = {
- 	{ .compatible = "honor,magicbook-art-14-snapdragon" },
- 	{ .compatible = "hp,elitebook-ultra-g1q" },
- 	{ .compatible = "hp,elitebook-x-g2q" },
-+	{ .compatible = "hp,omnibook-ultra-kg0xxx" },
- 	{ .compatible = "hp,omnibook-x14" },
- 	{ .compatible = "huawei,gaokun3" },
- 	{ .compatible = "lenovo,flex-5g" },
+-- 
+2.43.0
+

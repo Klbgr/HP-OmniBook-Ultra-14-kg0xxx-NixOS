@@ -1,0 +1,100 @@
+From 7be2b86b5640597254084963ab80149e1a0bb1cc Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Sat, 7 Nov 2026 18:31:05 +0100
+Subject: [PATCH] arm64: dts: qcom: mahua-hp-omnibook-ultra: local bring-up DTB
+
+New mahua-hp-omnibook-ultra-kg0xxx-bringup.dts, on top of the unchanged
+Mahua DTS:
+- SCMI arm,no-completion-irq (CPUCP never raises the completion IRQ)
+- sound card model kept at "GLYMUR-CRD" (linux-firmware topology name)
+- pcie4_phy refgen supplies
+- USB role-switch-default-mode = "host"
+- firmware-configured eUSB2 repeaters
+---
+ arch/arm64/boot/dts/qcom/Makefile             |  1 +
+ ...mahua-hp-omnibook-ultra-kg0xxx-bringup.dts | 61 +++++++++++++++++++
+ 2 files changed, 62 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index d088f33dd..889df82ab 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -66,6 +66,7 @@ lemans-evk-ifp-mezzanine-dtbs	:= lemans-evk.dtb lemans-evk-ifp-mezzanine.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk-ifp-mezzanine.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-crd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-lenovo-thinkpad-t14s-gen7-lcd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
+diff --git a/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts
+new file mode 100644
+index 000000000..63118e226
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dts
+@@ -0,0 +1,61 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Local bring-up DTB, not for upstream: mahua-hp-omnibook-ultra-kg0xxx.dts
++ * plus the fixes needed to boot it from a USB stick today.
++ */
++
++#include "mahua-hp-omnibook-ultra-kg0xxx.dts"
++
++/ {
++	model = "HP OmniBook Ultra Laptop 14-kg0xxx (bring-up)";
++};
++
++/*
++ * The CPUCP answers SCMI perf requests but never raises the completion
++ * interrupt; without polling, scmi-cpufreq hangs the SoC silently.
++ */
++&{/firmware/scmi} {
++	arm,no-completion-irq;
++};
++
++/*
++ * v2 names the card "GLYMUR-HP-OmniBook-Ultra-14-kg0xxx", but linux-firmware
++ * has no topology under that name: keep the CRD one
++ * (qcom/glymur/GLYMUR-CRD-tplg.bin).
++ */
++&{/sound} {
++	model = "GLYMUR-CRD";
++};
++
++&pcie4_phy {
++	vdda-refgen0p9-supply = <&vreg_l1c_e1_0p91>;
++	vdda-refgen1p2-supply = <&vreg_l4f_e1_1p2>;
++};
++
++&usb_0 {
++	role-switch-default-mode = "host";
++};
++
++&usb_1 {
++	role-switch-default-mode = "host";
++};
++
++&usb_2 {
++	role-switch-default-mode = "host";
++};
++
++/*
++ * Leave the SMB2370 eUSB2 repeaters as the UEFI firmware set them up: Linux
++ * never re-initialises or re-tunes them.
++ */
++&usb_0_hsphy {
++	/delete-property/ phys;
++};
++
++&usb_1_hsphy {
++	/delete-property/ phys;
++};
++
++&usb_2_hsphy {
++	/delete-property/ phys;
++};
+-- 
+2.43.0
+

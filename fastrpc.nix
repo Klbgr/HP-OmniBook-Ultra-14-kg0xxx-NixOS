@@ -23,6 +23,11 @@ stdenv.mkDerivation (finalAttrs: {
     "--with-sysusersdir=${placeholder "out"}/lib/sysusers.d"
   ];
 
+  # fastrpc_test dlopen()s these; they need to find libcdsprpc.so.1 by themselves.
+  postFixup = ''
+    patchelf --add-rpath $out/lib $out/lib/fastrpc_test/*.so
+  '';
+
   meta = {
     description = "Qualcomm FastRPC user-space library";
     homepage = "https://github.com/qualcomm/fastrpc";

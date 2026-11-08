@@ -7,15 +7,18 @@ let
   cmdline = init: "init=${init} ${toString config.boot.kernelParams}";
   # Same command line with msm allowed to load.
   withMsm = lib.replaceStrings [ "module_blacklist=msm " ] [ "" ];
+  # Power experiment: let the kernel switch off unclaimed clocks, power
+  # domains and regulators (the bring-up keeps them all on).
+  powerTest = lib.replaceStrings
+    [ "regulator_ignore_unused " "clk_ignore_unused " "pd_ignore_unused " ] [ "" "" "" ];
   base = cmdline "${build.toplevel}/init";
   kde = cmdline "${build.toplevel}/specialisation/kde/init";
 
-  entry = title: options: entryDtb title "omnibook.dtb" options;
-  entryDtb = title: dtb: options: pkgs.writeText "entry.conf" ''
+  entry = title: options: pkgs.writeText "entry.conf" ''
     title      ${title}
     linux      /EFI/nixos/kernel
     initrd     /EFI/nixos/initrd
-    devicetree /EFI/nixos/${dtb}
+    devicetree /EFI/nixos/omnibook.dtb
     options    ${options}
   '';
 in
@@ -32,7 +35,6 @@ in
           "/EFI/nixos/kernel".source = "${build.kernel}/${config.system.boot.loader.kernelFile}";
           "/EFI/nixos/initrd".source = "${build.initialRamdisk}/${config.system.boot.loader.initrdFile}";
           "/EFI/nixos/omnibook.dtb".source = "${dtbs}/${config.hardware.deviceTree.name}";
-          "/EFI/nixos/omnibook-cl4.dtb".source = "${dtbs}/qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dtb";
           "/loader/loader.conf".source = pkgs.writeText "loader.conf" ''
             timeout 10
             default omnibook-kde-msm.conf
@@ -45,8 +47,8 @@ in
             entry "NixOS KDE (software rendering)" kde;
           "/loader/entries/omnibook-kde-msm.conf".source =
             entry "NixOS KDE (msm)" (withMsm kde);
-          "/loader/entries/omnibook-kde-msm-cl4.conf".source =
-            entryDtb "NixOS KDE (msm, cluster CL4 test)" "omnibook-cl4.dtb" (withMsm kde);
+          "/loader/entries/omnibook-kde-msm-power.conf".source =
+            entry "NixOS KDE (msm, power test: unused clocks off)" (powerTest (withMsm kde));
         };
         repartConfig = {
           Type = "esp";

@@ -69,7 +69,10 @@ this laptop is not in a released kernel yet.
 | 3.5 mm headphones jack | Untested |
 | External monitor audio | Not supported: the Glymur topology and UCM have no DisplayPort audio yet |
 | Woofers with EasyEffects | Fixed with a stereo "Speakers" sink that upmixes to all four (FL/FR = tweeters, RL/RR = woofers) |
-| NPU | Untested. System side in the image: CDSP (Hexagon v81) + `fastrpc` driver, `libcdsprpc` (FastRPC 1.0.8), `/dev/fastrpc-cdsp*` and `/dev/dma_heap/system` for the `fastrpc` group, CDSP shells in `/usr/lib/dsp`. The QNN libraries and onnxruntime are not included |
+| NPU | Not working yet: FastRPC works (Qualcomm's calculator example runs on the CDSP), but the QNN HTP backend fails to initialize (onnxruntime-qnn 2.7.0). System side in the image: CDSP (Hexagon v81) + `fastrpc` driver, `libcdsprpc` (FastRPC 1.0.8), `/dev/fastrpc-cdsp*` and `/dev/dma_heap/system` for the `fastrpc` group, CDSP shells and libraries in `/usr/lib/dsp`. The QNN libraries and onnxruntime are not included |
+| Touchpad edge sliders | Windows' volume/brightness edge swipes are an HP driver feature. libinput's 8 mm edge palm zones are disabled instead (full touchpad); side effect: natural scrolling and two-finger right click by default |
+| Ambient light / presence sensors | Behind the ADSP sensor stack, no Linux support: no adaptive brightness |
+| Boot from USB, long term | A stick sometimes stops booting after a while (root device job fails) until reflashed; under investigation |
 
 ### CPU: Linux vs Windows (7-Zip 26.02 benchmark, 12 threads, on battery)
 
@@ -128,17 +131,13 @@ The image uses a French (AZERTY) keyboard layout. To change it, edit
 `console.keyMap` and `services.xserver.xkb.layout` in `configuration.nix`
 (for example `"us"`).
 
-### 4. Extract the firmware
+### 4. Firmware (automatic)
 
-The audio and USB-C DSP firmware is signed by HP and cannot be shared, so it
-is copied from your own Windows install:
-
-```bash
-./extract-firmware.sh
-```
-
-It reads `C:\Windows` through `/mnt/c` and fills `firmware/qcom/...`. See
-[Firmware](#firmware) for details and for doing it by hand.
+The audio and NPU DSP firmware is signed by HP and cannot be shared here.
+The build downloads HP's public Qualcomm driver pack (SoftPaq `sp174082`,
+454 MB) and unpacks the files from it; nothing from it is run. Optionally,
+`./extract-firmware.sh` copies newer versions from your Windows install
+(Windows Update), which then take precedence. See [Firmware](#firmware).
 
 ### 5. Build the image
 
@@ -146,9 +145,8 @@ It reads `C:\Windows` through `/mnt/c` and fills `firmware/qcom/...`. See
 nix build -L "path:$PWD"
 ```
 
-The `path:` part matters: the extracted firmware is git-ignored, and a plain
-`nix build` (or building straight from GitHub) only sees files tracked by
-git, so it stops with "HP firmware missing". Keep the laptop plugged in and
+The `path:` part makes Nix see git-ignored files, i.e. the optional
+firmware from `extract-firmware.sh`. Keep the laptop plugged in and
 awake until the build finishes.
 
 The result is `result/omnibook-x2e.raw`.
@@ -184,7 +182,7 @@ Boot entries:
 | Entry | What it is |
 | --- | --- |
 | **NixOS KDE (msm)** (default) | Desktop with GPU acceleration |
-| NixOS KDE (msm, cluster CL4 test) | Same, with an extra CPU cluster idle state (single-core boost experiment) |
+| NixOS KDE (msm, power test: unused clocks off) | Same, without `clk_ignore_unused`, `pd_ignore_unused`, `regulator_ignore_unused` (idle power experiment: works, 6.16 W vs 6.40 W idle) |
 | NixOS KDE (software rendering) | Desktop without the display driver (CPU rendering), if the default shows a black screen |
 | NixOS tty (msm) | Text console with the display driver |
 | NixOS tty | Text console on the firmware framebuffer, the safest fallback |
@@ -211,39 +209,58 @@ Applied by `buildLinux` on top of `linux-next` tag `next-20261102`
 | # | File | What | Source |
 | --- | --- | --- | --- |
 | 1 | `patches/mahua-gpu-v1-dt.patch` | Patches 2/5 (Glymur GMU compatible) and 5/5 (`mahua.dtsi` GPU/GMU nodes) of the Mahua GPU series; the driver part is in `linux-next` | <https://lore.kernel.org/all/20260925-mahua-gpu-v1-0-0fa0bfd8d315@oss.qualcomm.com/> |
-| 2 | `patches/glymur-mahua-hp-omnibook-ultra-kg0xxx.patch` | HP OmniBook Ultra 14-kg0xxx board v2 (binding, Glymur DTS, SCM allowlist) plus the Mahua DTS derived from it (`mahua.dtsi`, no cluster2 PMIC, no `pcie3_phy`, sound model kept at `GLYMUR-CRD`) | <https://lore.kernel.org/linux-arm-msm/20261101-hp-omnibook-v2-v2-0-1b99767deda0@oss.qualcomm.com/> (Mahua DTS: local) |
-| 3 | `patches/glymur-mahua-hp-omnibook-ultra-kg0xxx_2.patch` | Local fixes: `pcie3b_phy` (NVMe), REFGEN supplies, Makefile, `qcom,mahua` binding, SCMI `arm,no-completion-irq`, USB `role-switch-default-mode = "host"`, `-bringup` DTB (firmware eUSB2 repeaters) | Local. SCMI item follows <https://github.com/FixItFoundry/zenbook-a16-linux/blob/HEAD/patches/0001-arm64-dts-qcom-glymur-enable-SCMI-polling-mode.patch> |
-| 4 | `patches/glymur-dp-phy-pll-v6.patch` | QMP combo PHY: Glymur DP PLL programming (USB-C DisplayPort), 11 patches | patchwork series 1195323 (2026-10-28) |
-| 5 | `patches/dispcc-glymur-no-init-park.patch` | Don't park `disp_cc_mdss_mdp_clk_src` at probe (keeps the firmware framebuffer alive) | Local, same change as upstream `dispcc-x1e80100` |
-| 6 | `patches/phy-qcom-edp-v8.patch` | eDP panel PHY v8 power-on sequence (2 patches, Bjorn Andersson) | <https://lore.kernel.org/all/20260622-glymur-edp-phy-v1-0-814b45089ac9@oss.qualcomm.com/> |
-| 7 | `patches/qmp-combo-typec-callbacks-v3.patch` | qmp-combo: hold a runtime PM reference in, and check `qmp_combo_com_init()` from, the Type-C switch/mux callbacks (2 patches) | <https://lore.kernel.org/all/20260916133814.3977-1-okerixx@gmail.com/> |
-| 8 | `patches/pmic-glink-altmode-ack-undescribed-ports.patch` | pmic_glink_altmode: acknowledge notifications on ports without a connector node (found on the Mahua OmniBook 5) | <https://lore.kernel.org/all/20260930111657.1147-1-theflyingrahul@gmail.com/> |
-| 9 | `patches/qmp-pcie-refgen-v3.patch` | qmp-pcie: `vdda-refgen0p9`/`1p2` supplies for Glymur PCIe PHYs (3 patches) | <https://lore.kernel.org/linux-arm-msm/20261013-phy_refgen_1012-v3-0-f28305289499@oss.qualcomm.com/> |
-| 10 | `patches/gcc-glymur-usb-ret-on.patch` | gcc-glymur: USB GDSCs retain state (xHCI dies after s2idle resume without it) | <https://lore.kernel.org/all/20261016-glymur-usb-ret-on-v1-1-1790a523fd9c@oss.qualcomm.com/> |
-| 11 | `patches/glymur-usb-resume-hs-terminations.patch` | glymur.dtsi: `snps,resume-hs-terminations` on the USB controllers (USB2 resume with the M31 PHY) | patchwork series 1187137 (2026-10-16) |
-| 12 | `patches/icc-bwmon-suspend.patch` | icc-bwmon: drop the DDR vote across system suspend | patchwork series 1188352 (2026-10-18) |
-| 13 | `patches/dwc3-qcom-defer-vbus-override-v2.patch` | dwc3-qcom: no QSCRATCH access with clocks off when a cable changes during s2idle (SoC reset) | patchwork series 1191670 (2026-10-23) |
-| 14 | `patches/msm-dp-runtime-pm-per-plug-v3.patch` | drm/msm/dp: one runtime PM reference per plugged state (leaks on USB-C HPD) | patchwork series 1192548 (2026-10-24) |
-| 15 | `patches/a8xx-gmem-base-v2.patch` | drm/msm: correct `GMEM_BASE` on a8xx | patchwork series 1196683 (2026-10-29) |
-| 16 | `patches/glymur-fastrpc-cdsp-cb-reg-v5.patch` | glymur.dtsi: CDSP fastrpc context banks 12-14 had wrong `reg` (SMMU faults) (2 patches) | patchwork series 1187001 (2026-10-16) |
-| 17 | `patches/mahua-bringup-cluster-cl4.patch` | `mahua-hp-omnibook-ultra-kg0xxx-bringup-cl4.dtb`: the bring-up DTB plus the "CL4" cluster idle state from the ACPI tables (missing in `glymur.dtsi`), for the "NixOS KDE (msm, cluster CL4 test)" entry | Local |
+| 2 | `patches/glymur-hp-omnibook-ultra-kg0xxx-v2.patch` | HP OmniBook Ultra 14-kg0xxx board v2 as posted (binding, Glymur DTS, SCM allowlist), 3 patches | <https://lore.kernel.org/linux-arm-msm/20261101-hp-omnibook-v2-v2-0-1b99767deda0@oss.qualcomm.com/> |
+| 3 | `patches/mahua-hp-omnibook-ultra-kg0xxx.patch` | Mahua variant: the v2 board moves to `glymur-hp-omnibook-ultra-kg0xxx.dtsi` (no SoC include); `glymur-hp-omnibook-ultra-kg0xxx.dts` is recreated from `glymur.dtsi` + that file (same DTB as v2) and `mahua-hp-omnibook-ultra-kg0xxx.dts` from `mahua.dtsi` + that file (no cluster2 PMIC, `qcom,mahua`, `pcie3b_phy` for the NVMe); binding and Makefile | Local |
+| 4 | `patches/mahua-hp-omnibook-ultra-kg0xxx-local.patch` | New `mahua-hp-omnibook-ultra-kg0xxx-bringup.dts` (the DTB we boot) on top of the untouched Mahua DTS: SCMI `arm,no-completion-irq`, sound model kept at `GLYMUR-CRD`, `pcie4_phy` REFGEN supplies, USB `role-switch-default-mode = "host"`, firmware-configured eUSB2 repeaters | Local. SCMI item follows <https://github.com/FixItFoundry/zenbook-a16-linux/blob/HEAD/patches/0001-arm64-dts-qcom-glymur-enable-SCMI-polling-mode.patch> |
+| 5 | `patches/glymur-dp-phy-pll-v6.patch` | QMP combo PHY: Glymur DP PLL programming (USB-C DisplayPort), 11 patches | patchwork series 1195323 (2026-10-28) |
+| 6 | `patches/dispcc-glymur-no-init-park.patch` | Don't park `disp_cc_mdss_mdp_clk_src` at probe (keeps the firmware framebuffer alive) | Local, same change as upstream `dispcc-x1e80100` |
+| 7 | `patches/phy-qcom-edp-v8.patch` | eDP panel PHY v8 power-on sequence (2 patches, Bjorn Andersson) | <https://lore.kernel.org/all/20260622-glymur-edp-phy-v1-0-814b45089ac9@oss.qualcomm.com/> |
+| 8 | `patches/qmp-combo-typec-callbacks-v3.patch` | qmp-combo: hold a runtime PM reference in, and check `qmp_combo_com_init()` from, the Type-C switch/mux callbacks (2 patches) | <https://lore.kernel.org/all/20260916133814.3977-1-okerixx@gmail.com/> |
+| 9 | `patches/pmic-glink-altmode-ack-undescribed-ports.patch` | pmic_glink_altmode: acknowledge notifications on ports without a connector node (found on the Mahua OmniBook 5) | <https://lore.kernel.org/all/20260930111657.1147-1-theflyingrahul@gmail.com/> |
+| 10 | `patches/qmp-pcie-refgen-v3.patch` | qmp-pcie: `vdda-refgen0p9`/`1p2` supplies for Glymur PCIe PHYs (3 patches) | <https://lore.kernel.org/linux-arm-msm/20261013-phy_refgen_1012-v3-0-f28305289499@oss.qualcomm.com/> |
+| 11 | `patches/gcc-glymur-usb-ret-on.patch` | gcc-glymur: USB GDSCs retain state (xHCI dies after s2idle resume without it) | <https://lore.kernel.org/all/20261016-glymur-usb-ret-on-v1-1-1790a523fd9c@oss.qualcomm.com/> |
+| 12 | `patches/glymur-usb-resume-hs-terminations.patch` | glymur.dtsi: `snps,resume-hs-terminations` on the USB controllers (USB2 resume with the M31 PHY) | patchwork series 1187137 (2026-10-16) |
+| 13 | `patches/icc-bwmon-suspend.patch` | icc-bwmon: drop the DDR vote across system suspend | patchwork series 1188352 (2026-10-18) |
+| 14 | `patches/dwc3-qcom-defer-vbus-override-v2.patch` | dwc3-qcom: no QSCRATCH access with clocks off when a cable changes during s2idle (SoC reset) | patchwork series 1191670 (2026-10-23) |
+| 15 | `patches/msm-dp-runtime-pm-per-plug-v3.patch` | drm/msm/dp: one runtime PM reference per plugged state (leaks on USB-C HPD) | patchwork series 1192548 (2026-10-24) |
+| 16 | `patches/a8xx-gmem-base-v2.patch` | drm/msm: correct `GMEM_BASE` on a8xx | patchwork series 1196683 (2026-10-29) |
+| 17 | `patches/glymur-fastrpc-cdsp-cb-reg-v5.patch` | glymur.dtsi: CDSP fastrpc context banks 12-14 had wrong `reg` (SMMU faults) (2 patches) | patchwork series 1187001 (2026-10-16) |
 
 ## Firmware
 
-### Extracting the HP firmware
+### HP firmware
 
-Four files come from the Windows driver store and are not in this
-repository (HP/Qualcomm proprietary, git-ignored). They belong to the laptop
-model (board `8F03`), not to one machine, but they cannot be redistributed.
-The script also copies the two CDSP process shells (`fastrpc_shell_3`,
-`fastrpc_shell_unsigned_3`, from the same CDSP package, into `dsp/cdsp/`),
-used for NPU offload; the image builds without them.
+The HP-signed DSP files are not in this repository (proprietary). By
+default the build takes them from HP's public driver pack
+<https://ftp.hp.com/pub/softpaq/sp174001-174500/sp174082.exe> (pinned by
+SHA-256, unpacked with 7-Zip, never run; same approach as Omarchy's
+`hp-omnibook-ultra-14-firmware` package):
 
-`./extract-firmware.sh [WINDOWS_DIR]` copies them; `WINDOWS_DIR` defaults to
-`/mnt/c/Windows` (WSL). From a Linux system, mount the Windows partition
-read-only and pass its `Windows` directory. It picks the ADSP package whose
-INF lists `SUBSYS_8F03103C` (override with `SUBSYS=...`) and the newest CDSP
-package.
+| From the pack | Files | Installed as |
+| --- | --- | --- |
+| `src/Driver/qcsubsys_ext_adsp8480_fix_listen_WHQL/` | `qcadsp8480.mbn`, `adsp_dtbs.elf` | `/lib/firmware/qcom/glymur/hp/omnibook-ultra-14-kg0xxx/` |
+| `src/Driver/qcnspmcdm8480/` (CDSP `30.0.220`) | `qccdsp8480.mbn`, `cdsp_dtbs.elf` | same |
+| `src/Driver/qcnspmcdm8480/CDSP/` | process shells and DSP-side libraries | `/usr/lib/dsp/` |
+
+```text
+0b68b188aac54f7beecb3234c19e794092864a4690aafea20bf379643305bf93  qcadsp8480.mbn
+c1a69fe37eaff8759b22738f4d4b8e046e7b07fbccdfdc76554f0fa6b412b981  adsp_dtbs.elf
+acf13d29288d283793f418a36650e8a261eed927d30de109a59cb2210f458794  qccdsp8480.mbn
+9bee104a48d4aac647287d6c1454df170c1cff7158a2352711fd1e2163ea6d1d  cdsp_dtbs.elf
+61301ad82965b291d868989bf224ebe464501d38ea786c8f4ef3231eea6f22d5  fastrpc_shell_3
+b65b25e7c399f5272920e5d2b9f3197164b9eb1818194cb44339bc89f603b1f8  fastrpc_shell_unsigned_3
+```
+
+### Optional: newer files from Windows
+
+Windows Update can install a newer CDSP package than the SoftPaq's.
+`./extract-firmware.sh [WINDOWS_DIR]` copies the four firmware files into
+`firmware/qcom/...` and the two shells into `dsp/cdsp/` (git-ignored); when
+present they replace the SoftPaq files (build with `path:`). `WINDOWS_DIR`
+defaults to `/mnt/c/Windows` (WSL). From a Linux system, mount the Windows
+partition read-only and pass its `Windows` directory. It picks the ADSP
+package whose INF lists `SUBSYS_8F03103C` (override with `SUBSYS=...`) and
+the newest CDSP package.
 
 By hand: in `C:\Windows\System32\DriverStore\FileRepository`, copy
 
@@ -253,8 +270,7 @@ By hand: in `C:\Windows\System32\DriverStore\FileRepository`, copy
 | `qcnspmcdm8480.inf_arm64_*` (newest version) | `qccdsp8480.mbn`, `cdsp_dtbs.elf` | same |
 | same folder, `CDSP/` | `fastrpc_shell_3`, `fastrpc_shell_unsigned_3` | `dsp/cdsp/` |
 
-The tested files have these SHA-256 sums (newer Windows driver updates can
-differ and should still work):
+The files tested from Windows (CDSP `30.0.228`) have these SHA-256 sums:
 
 ```text
 0b68b188aac54f7beecb3234c19e794092864a4690aafea20bf379643305bf93  qcadsp8480.mbn
@@ -278,8 +294,8 @@ ADSP there for USB-C orientation.
 
 | `firmware/...` | Source | Used for |
 | --- | --- | --- |
-| `qcom/glymur/hp/omnibook-ultra-14-kg0xxx/qcadsp8480.mbn`, `adsp_dtbs.elf` | Windows driver store, `qcsubsys_ext_adsp8480.inf_arm64_f8056c8c0730b734` (HP, `SUBSYS_8F03103C`) | ADSP: audio, battery/USB-C (pmic_glink) |
-| `qcom/glymur/hp/omnibook-ultra-14-kg0xxx/qccdsp8480.mbn`, `cdsp_dtbs.elf` | Windows driver store, `qcnspmcdm8480.inf_arm64_cde10e01d3a2d2e1` (30.0.228) | CDSP |
+| `qcom/glymur/hp/omnibook-ultra-14-kg0xxx/qcadsp8480.mbn`, `adsp_dtbs.elf` | HP SoftPaq `sp174082`, `qcsubsys_ext_adsp8480_fix_listen_WHQL` (same files as the Windows driver store's HP `SUBSYS_8F03103C` package) | ADSP: audio, battery/USB-C (pmic_glink) |
+| `qcom/glymur/hp/omnibook-ultra-14-kg0xxx/qccdsp8480.mbn`, `cdsp_dtbs.elf` | HP SoftPaq `sp174082`, `qcnspmcdm8480` (30.0.220); optionally the Windows driver store's newer package (30.0.228) | CDSP |
 | `ath12k/WCN7850/hw2.0/board.bin` | linux-firmware `board-2.bin` entry `subsystem-vendor=103c,subsystem-device=8d99` (another HP laptop, module `bncm865a`), extracted | Wi-Fi board data: no `103c:8e64` entry exists upstream, and HP's own files crash the upstream Wi-Fi firmware |
 
 Board files tried for Wi-Fi: linux-firmware's HP `103c:8d99` (in use) and
@@ -297,8 +313,9 @@ from test reports I made on the laptop.
 What the AI did:
 
 - Wrote nearly all of the code and text: `configuration.nix`, `image.nix`,
-  `flake.nix`, `omnibook-diag.sh`, `extract-firmware.sh`, the local device
-  tree patches (the Mahua DTS derived from Qualcomm's Glymur one, the `_2`
+  `flake.nix`, `fastrpc.nix`,
+  `omnibook-diag.sh`, `extract-firmware.sh`, the local device
+  tree patches (the Mahua variant built on Qualcomm's Glymur board file, the local
   fixes) and this README.
 - Checked the patches I picked (useful? already merged?), searched the
   mailing lists (lore, patchwork) for more, and rebased everything onto

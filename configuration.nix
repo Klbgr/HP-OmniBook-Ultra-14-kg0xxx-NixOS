@@ -96,6 +96,18 @@ let
 
     environment.systemPackages = [ pkgs.easyeffects ];
 
+    # libinput treats touches starting in the outer 8 mm of the touchpad as
+    # palms. The Apple quirk is the only switch that turns that off; it also
+    # defaults to natural scrolling and two-finger right click (KDE can change both).
+    environment.etc."libinput/local-overrides.quirks".text = ''
+      [HP OmniBook Ultra 14 touchpad]
+      MatchUdevType=touchpad
+      MatchBus=i2c
+      MatchVendor=0x06CB
+      MatchProduct=0xD032
+      ModelAppleTouchpad=1
+    '';
+
     # SDDM refuses root logins.
     users.users.nixos = {
       isNormalUser = true;
@@ -106,19 +118,42 @@ let
 
   dspFw = "qcom/glymur/hp/omnibook-ultra-14-kg0xxx";
   dspFiles = [ "qcadsp8480.mbn" "adsp_dtbs.elf" "qccdsp8480.mbn" "cdsp_dtbs.elf" ];
+
+  # HP's Qualcomm driver pack (SoftPaq sp174082, public download): HP-signed
+  # ADSP/CDSP firmware and the CDSP user libraries. Only unpacked, never run.
+  hpDriverPack = pkgs.fetchurl {
+    url = "https://ftp.hp.com/pub/softpaq/sp174001-174500/sp174082.exe";
+    sha256 = "98fe80a7588e1c3cc4a460726c9907e28a1fd6e5f18669d9187554804002c7dd";
+  };
+  hpDsp = pkgs.runCommand "omnibook-hp-dsp" { nativeBuildInputs = [ pkgs._7zz ]; } ''
+    7zz x -y -osp ${hpDriverPack} 'src/Driver/qcsubsys_ext_adsp8480_fix_listen_WHQL/*' \
+      'src/Driver/qcnspmcdm8480/*' > /dev/null
+    a=sp/src/Driver/qcsubsys_ext_adsp8480_fix_listen_WHQL c=sp/src/Driver/qcnspmcdm8480
+    install -Dm444 -t $out/${dspFw} $a/qcadsp8480.mbn $a/adsp_dtbs.elf $c/qccdsp8480.mbn $c/cdsp_dtbs.elf
+    install -Dm444 -t $out/dsp/cdsp $c/CDSP/*
+    (cd $out && sha256sum -c --quiet) <<'SUMS'
+    0b68b188aac54f7beecb3234c19e794092864a4690aafea20bf379643305bf93  ${dspFw}/qcadsp8480.mbn
+    c1a69fe37eaff8759b22738f4d4b8e046e7b07fbccdfdc76554f0fa6b412b981  ${dspFw}/adsp_dtbs.elf
+    acf13d29288d283793f418a36650e8a261eed927d30de109a59cb2210f458794  ${dspFw}/qccdsp8480.mbn
+    9bee104a48d4aac647287d6c1454df170c1cff7158a2352711fd1e2163ea6d1d  ${dspFw}/cdsp_dtbs.elf
+    61301ad82965b291d868989bf224ebe464501d38ea786c8f4ef3231eea6f22d5  dsp/cdsp/fastrpc_shell_3
+    b65b25e7c399f5272920e5d2b9f3197164b9eb1818194cb44339bc89f603b1f8  dsp/cdsp/fastrpc_shell_unsigned_3
+    SUMS
+  '';
+
+  # Files from extract-firmware.sh (newer Windows Update versions) win if present.
   dspFile = f:
     let p = ./firmware + "/${dspFw}/${f}"; in
-    if builtins.pathExists p then p else throw ''
-      HP firmware missing: firmware/${dspFw}/${f}.
-      Run ./extract-firmware.sh (see README, "Firmware"), then build with
-      nix build "path:$PWD" (git-ignored files are invisible to a git flake).
-    '';
+    if builtins.pathExists p then p else "${hpDsp}/${dspFw}/${f}";
 
   fastrpc = pkgs.callPackage ./fastrpc.nix { };
 
-  # CDSP process shells from the Windows CDSP package (extract-firmware.sh).
-  dspShells = lib.optional (builtins.pathExists ./dsp/cdsp)
-    (pkgs.runCommand "omnibook-cdsp-shells" { } "cp -r ${./dsp/cdsp} $out");
+  # CDSP process shells and DSP-side libraries, loaded from /usr/lib/dsp.
+  dspShells = [
+    (if builtins.pathExists ./dsp/cdsp
+     then pkgs.runCommand "omnibook-cdsp-shells" { } "cp -r ${./dsp/cdsp} $out"
+     else "${hpDsp}/dsp/cdsp")
+  ];
 
   # UCM looks up conf.d/<driver>/<card long name>.conf; alsa-ucm-conf only has
   # GLYMUR-CRD.conf (same four WSA8845 + VA DMIC layout and control names).
@@ -153,14 +188,20 @@ in
         patch = ./patches/mahua-gpu-v1-dt.patch;
       }
       {
-        # Board series v2 (3 patches) + the Mahua DTS derived from it.
-        name = "glymur-mahua-hp-omnibook-ultra-kg0xxx";
-        patch = ./patches/glymur-mahua-hp-omnibook-ultra-kg0xxx.patch;
+        # Board series v2 (3 patches), unchanged from the list.
+        name = "glymur-hp-omnibook-ultra-kg0xxx-v2";
+        patch = ./patches/glymur-hp-omnibook-ultra-kg0xxx-v2.patch;
       }
       {
-        # Fixes on top of the board patch above; order matters.
-        name = "glymur-mahua-hp-omnibook-ultra-kg0xxx-2";
-        patch = ./patches/glymur-mahua-hp-omnibook-ultra-kg0xxx_2.patch;
+        # v2 board moved to a .dtsi; Glymur (same DTB) and Mahua .dts on it.
+        name = "mahua-hp-omnibook-ultra-kg0xxx";
+        patch = ./patches/mahua-hp-omnibook-ultra-kg0xxx.patch;
+      }
+      {
+        # New -bringup .dts on top: SCMI polling, CRD sound model, pcie4
+        # refgen, USB host role, firmware-configured eUSB2 repeaters.
+        name = "mahua-hp-omnibook-ultra-kg0xxx-local";
+        patch = ./patches/mahua-hp-omnibook-ultra-kg0xxx-local.patch;
       }
       {
         # Glymur DP PHY PLL programming (USB-C DisplayPort), v6 (11 patches).
@@ -188,7 +229,7 @@ in
       }
       {
         # PCIe PHY REFGEN supplies (driver, binding, in-tree boards); ours are
-        # in the _2 patch.
+        # in the board v2 (pcie3), Mahua (pcie3b) and local (pcie4) patches.
         name = "qmp-pcie-refgen-v3";
         patch = ./patches/qmp-pcie-refgen-v3.patch;
       }
@@ -225,11 +266,6 @@ in
         # CDSP fastrpc context banks 12-14 had the wrong reg (SMMU faults).
         name = "glymur-fastrpc-cdsp-cb-reg-v5";
         patch = ./patches/glymur-fastrpc-cdsp-cb-reg-v5.patch;
-      }
-      {
-        # Extra DTB with the ACPI "CL4" cluster idle state, for the boost test entry.
-        name = "mahua-bringup-cluster-cl4";
-        patch = ./patches/mahua-bringup-cluster-cl4.patch;
       }
     ];
 
@@ -316,7 +352,7 @@ in
   });
 
   # Bring-up variant of the HP OmniBook Ultra (Mahua) device tree: firmware-
-  # configured eUSB2 repeaters (see the _2 patch). USB-C DP is on.
+  # configured eUSB2 repeaters (see the local patch). USB-C DP is on.
   hardware.deviceTree = {
     enable = true;
     name = "qcom/mahua-hp-omnibook-ultra-kg0xxx-bringup.dtb";
@@ -373,33 +409,19 @@ in
   services.getty.autologinUser = "root";
   hardware.enableRedistributableFirmware = true;
 
-  # Device-specific, HP-signed firmware that linux-firmware doesn't ship
-  # (ADSP/CDSP for audio, ath12k board file for Wi-Fi). Put the files in
-  # nix/firmware/ using the /lib/firmware layout, e.g.
-  # firmware/qcom/glymur/hp/omnibook-ultra-14-kg0xxx/qcadsp8480.mbn.
-  hardware.firmware = lib.optional (builtins.pathExists ./firmware)
+  # Device-specific firmware that linux-firmware doesn't ship: ath12k board
+  # file for Wi-Fi (nix/firmware/ath12k) and the HP-signed ADSP/CDSP files.
+  hardware.firmware = [
     (pkgs.runCommand "omnibook-firmware" { } ''
-      mkdir -p $out/lib
-      cp -r ${./firmware} $out/lib/firmware
-    '');
+      mkdir -p $out/lib/firmware/${dspFw}
+      cp -r ${./firmware/ath12k} $out/lib/firmware/ath12k
+      ${lib.concatMapStrings (f: "cp ${dspFile f} $out/lib/firmware/${dspFw}/${f}\n") dspFiles}
+    '')
+  ];
 
   # No TPM node in glymur.dtsi/mahua.dtsi: without this both stages wait 90 s
   # for /dev/tpmrm0 (the systemd.mask= kernel args never reached the initrd).
   systemd.tpm2.enable = false;
-
-  # s2idle resume hangs (white lock screen, dead tty): no suspend until fixed;
-  # closing the lid only locks.
-  # systemd.sleep.settings.Sleep = {
-  #   AllowSuspend = "no";
-  #   AllowHibernation = "no";
-  #   AllowHybridSleep = "no";
-  #   AllowSuspendThenHibernate = "no";
-  # };
-  # services.logind.settings.Login = {
-  #   HandleLidSwitch = "lock";
-  #   HandleLidSwitchExternalPower = "lock";
-  #   HandleSuspendKey = "ignore";
-  # };
 
   # French AZERTY; earlySetup also puts it in the initrd emergency shell.
   console.keyMap = "fr";
@@ -425,6 +447,8 @@ in
     alsa-utils
     _7zz
     fastrpc
+    strace
+    evtest
   ];
 
   # Bring-up: root has no password, so sulogin refuses emergency/rescue mode
@@ -448,6 +472,9 @@ in
     options = [ "nofail" "x-systemd.device-timeout=10s" ];
   };
 
+  # The stick doesn't support TRIM anyway.
+  services.fstrim.enable = false;
+
   boot.initrd = {
     # Stage 1 is the systemd initrd; without this its emergency shell refuses
     # to open ("root account is locked"). Bring-up only.
@@ -455,6 +482,31 @@ in
     systemd.tpm2.enable = false;
     systemd.extraBin.dmesg = "${pkgs.util-linux}/bin/dmesg";
     systemd.extraBin.grep = "${pkgs.gnugrep}/bin/grep";
+    # To inspect the stick when the root partition does not show up.
+    systemd.extraBin.ls = "${pkgs.coreutils}/bin/ls";
+    systemd.extraBin.lsblk = "${pkgs.util-linux}/bin/lsblk";
+    systemd.extraBin.blkid = "${pkgs.util-linux}/bin/blkid";
+    systemd.extraBin.sfdisk = "${pkgs.util-linux}/bin/sfdisk";
+    # Shown on screen when root never appears; photograph it.
+    systemd.services.omnibook-root-diag = {
+      wantedBy = [ "emergency.target" ];
+      before = [ "emergency.service" ];
+      unitConfig.DefaultDependencies = false;
+      serviceConfig = {
+        Type = "oneshot";
+        StandardOutput = "tty";
+        TTYPath = "/dev/console";
+      };
+      script = ''
+        set +e
+        echo "=== omnibook-root-diag ==="
+        ls -l /dev/disk/by-partlabel /dev/disk/by-id
+        lsblk -o NAME,SIZE,TYPE,PARTLABEL,FSTYPE
+        for d in /dev/sd?; do [ -e "$d" ] && sfdisk -l "$d"; done
+        dmesg | grep -i -E 'sd[a-z]|usb [0-9]|gpt|uas|error|-71|-110' | grep -v -i -E 'efivars|ACPI'
+        echo "=== end ==="
+      '';
+    };
 
     # The whole PCIe/NVMe chain is built into the kernel above, so stage 1 has
     # nothing Qualcomm-specific left to load. Keeping the default module set
